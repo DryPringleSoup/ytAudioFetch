@@ -34,12 +34,8 @@ def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, use
     
     #download basic info of the playlist/video, significantly faster than extracting the info with the flags in ydlOpts
     #also allpws for really fast checking of repeat video if replacing is set to False
-    with yt_dlp.YoutubeDL({ "extract_flat": True }) as ydl:
+    with yt_dlp.YoutubeDL({ "extract_flat": True, "ignoreerrors": True }) as ydl:
         info = ydl.extract_info(ytURL, download=False)
-        # Normalizes single-video-extarcted info to be semi-consistent with the playlist-extracted info
-        if "playlist?list=" not in ytURL: # If the URL is a single video, the info is not in a list and urk is in "webpage_url"
-            info["url"] = info["webpage_url"]
-            info = { "entries": [info] }
         
         """
         If a playlist has a unavaliable video, that video's duration is None.
@@ -49,10 +45,12 @@ def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, use
 
         The reason why I'm not putting this in the if statement above is because
         it's possible that for some reason the info is None even if the URL is a playlist
-        """
-        
-        if info is None:
-            info = { "entries": [{"duration": None, "url": ytURL}] }
+        """        
+        if info is None: info = { "entries": [{"duration": None, "url": ytURL}] }
+        elif "playlist?list=" not in ytURL: # If the URL is a single video, the info is not in a list and urk is in "webpage_url"
+            # Normalizes single-video-extarcted info to be semi-consistent with the playlist-extracted info
+            info["url"] = info["webpage_url"]
+            info = { "entries": [info] }
 
     ydlOpts = {
         "format": "bestaudio/best",
@@ -66,6 +64,7 @@ def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, use
             "preferredcodec": "mp3",
             "preferredquality": "192",
         }],
+        "ignoreerrors": True,
         "quiet": False,
         "progress_hooks": [hook],
     }

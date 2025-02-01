@@ -22,14 +22,10 @@ If you're on linux just download the ytafLinuxInstaller and run it
      ```
   - On Linux
      ```bash
-     source ytafenv\Scripts\activate
+     source ytafenv\bin\activate
      ```
 
 4. Install dependencies
    ```bash
    pip install -r requirements.txt
    ```
-
-## TO DO
-- Tag editor
-- Download with Json
