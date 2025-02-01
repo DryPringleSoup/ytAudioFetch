@@ -1,9 +1,20 @@
 import sys, io
+from functools import partial
 from PyQt5 import QtWidgets, QtCore
 from ytAudioFetch import downloadAndTagAudio, downloadOrTagAudioWithJson, ID3_ALIASES
 
-class FolderSelector(QtWidgets.QWidget):
-    def __init__(self, placeholder="Enter folder path", parent=None):
+HOME_DIR = QtCore.QDir.homePath()
+
+class FileBrowser(QtWidgets.QWidget):
+    
+    # getExistingDirectory returns string while getOpenFileName returns tuple so this normalize it to work with browse()
+    BROWSE_TYPE = {
+        "file": partial(QtWidgets.QFileDialog.getOpenFileName, caption="Select File", directory=HOME_DIR, filter="All Files (*)"),
+        "folder": lambda self: (QtWidgets.QFileDialog.getExistingDirectory(self, "Select Output Directory", HOME_DIR), ""),
+        "json": partial(QtWidgets.QFileDialog.getOpenFileName, caption="Select JSON File", directory=HOME_DIR, filter="JSON Files (*.json);;All Files (*)")
+    }
+
+    def __init__(self, type, placeholder="Enter path", parent=None):
         super().__init__(parent)
 
         # Create layout
@@ -17,20 +28,20 @@ class FolderSelector(QtWidgets.QWidget):
         # Browse button
         self.browseButton = QtWidgets.QPushButton("🗁", self)
         self.browseButton.setFixedSize(40, 30)  # Adjust size if needed
-        self.browseButton.clicked.connect(self.browseFolder)
+        self.browseButton.clicked.connect(partial(self.browse, type))
+        self.browseButton.setStyleSheet("QPushButton { font-weight: bold; }")
         layout.addWidget(self.browseButton)
 
         # Remove extra spacing
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(5)
+    
+    def browse(self, type):
+        """Opens a file dialog to select a something based on the type parameter."""
+        path, _ = FileBrowser.BROWSE_TYPE[type](self)
+        if path: self.folderInput.setText(path)
 
-    def browseFolder(self):
-        """Opens a folder selection dialog and updates the text field."""
-        folder = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Output Directory")
-        if folder:
-            self.folderInput.setText(folder)
-
-    def getFolderPath(self):
+    def getPath(self):
         """Returns the selected folder path."""
         return self.folderInput.text()
 
@@ -39,22 +50,26 @@ class OutputCapture(io.StringIO):
     def __init__(self, label):
         super().__init__()
         self.label = label
-        self.output_buffer = ""  # Initialize the output buffer
-        self.output_clear = False
+        self.outputBuffer = ""  # Initialize the output buffer
+        self.outputClear = False
+        self.original_stdout = sys.stdout
 
     def write(self, message):
         # Store the newest message in the buffer
         # if there's a newline, clear the buffer
-        if self.output_clear:
+        if self.outputClear:
             if message.strip():
-                self.output_buffer = message
-                self.output_clear = False
-        else: self.output_buffer += message
-        if "\n" in message: self.output_clear = True
-        if len(self.output_buffer) >= 50: self.output_buffer = self.output_buffer[:50]+"..." 
+                self.outputBuffer = message
+                self.outputClear = False
+        else: self.outputBuffer += message
+        if "\n" in message: self.outputClear = True
+        if len(self.outputBuffer) >= 50: self.outputBuffer = self.outputBuffer[:50]+"..."
+        
+        #Write to console
+        self.original_stdout.write(message)
 
         # Update the label with the new message
-        self.label.setText("Output\n"+self.output_buffer)
+        self.label.setText("Output\n"+self.outputBuffer)
 
     def flush(self): pass  # Required for compatibility with some interfaces
 
@@ -93,13 +108,13 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
     def initUI(self):
         # Set the window title and size
         self.setWindowTitle('YouTube Audio Fetch')
-        self.setGeometry(0, 0, 600, 600)
+        self.setMinimumWidth(600)
 
         # Center the window on the screen
         screen = QtWidgets.QDesktopWidget().screenGeometry()
-        window_size = self.geometry()
-        x = (screen.width() - window_size.width()) // 2
-        y = (screen.height() - window_size.height()) // 2
+        windowSize = self.geometry()
+        x = (screen.width() - windowSize.width()) // 2
+        y = (screen.height() - windowSize.height()) // 2
         self.move(x, y)
 
         # Create layout
@@ -134,6 +149,9 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.jsonModeInitUI(self.jsonModeLayout)
         self.jsonModeGroup.setLayout(self.jsonModeLayout)
 
+        # Add a stretchable spacer item to absorb any extra vertical space
+        layout.addStretch()
+
         # Download status
         self.statusLabel = QtWidgets.QLabel("", self)
         layout.addWidget(self.statusLabel)
@@ -142,8 +160,8 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.progressLabel = QtWidgets.QLabel("Output:\n", self)
         layout.addWidget(self.progressLabel)
         # Redirect stdout to capture print statements
-        self.output_capture = OutputCapture(self.progressLabel)
-        sys.stdout = self.output_capture
+        self.outputCapture = OutputCapture(self.progressLabel)
+        sys.stdout = self.outputCapture
 
         # Set layout and style
         self.toggleJsonSwitch()
@@ -157,7 +175,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         layout.addWidget(self.urlInput)
 
         # Output folder input and browse button
-        self.urlOutputDirInput = FolderSelector("Enter the folder you want to save your MP3 files here", self)
+        self.urlOutputDirInput = FileBrowser("folder", "Enter the folder you want to save your MP3 files here", self)
         layout.addWidget(self.urlOutputDirInput)
 
         # Toggle Options button
@@ -193,7 +211,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
     
     def jsonModeInitUI(self, layout):
         # JSON file input
-        self.jsonInput = FolderSelector("Enter the path of the JSON File you want to use", self)
+        self.jsonInput = FileBrowser("json", "Enter the path of the JSON File you want to use", self)
         layout.addWidget(self.jsonInput)
 
         # Options button
@@ -242,7 +260,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         layout.addWidget(self.jsonOptionsGroup)
 
         # Start button
-        self.jsonStartButton = QtWidgets.QPushButton("Start Download", self)
+        self.jsonStartButton = QtWidgets.QPushButton("Start Extraction", self)
         self.jsonStartButton.clicked.connect(self.startJsonExtract)
         layout.addWidget(self.jsonStartButton)
 
@@ -251,23 +269,10 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
     
     def toggleJsonOptions(self):
         self.jsonOptionsGroup.setVisible(not self.jsonOptionsGroup.isVisible())
-
-    def browseFolder(self):
-        # Open a dialog to select a directory
-        folder = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Output Directory")
-        if folder: self.outputDirInput.setText(folder)
-    
-    def browseJsonFile(self):
-        """Opens a file dialog to select a JSON file and updates the text field."""
-        file_dialog = QtWidgets.QFileDialog()
-        file_path, _ = file_dialog.getOpenFileName(self, "Select JSON File", "", "JSON Files (*.json);;All Files (*)")
-
-        if file_path:
-            self.outputDirInput.setText(file_path)  # Update input field with selected JSON file path
     
     def startURLDownload(self):
         ytURL = self.urlInput.text()
-        outputDir = self.urlOutputDirInput.getFolderPath()
+        outputDir = self.urlOutputDirInput.getPath()
         replacing = self.urlReplaceSwitch.isChecked()
         useLog = self.urlLogSwitch.isChecked()
         overwriteLog = self.urlOverwriteSwitch.isChecked()
@@ -285,9 +290,9 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.worker.start()
     
     def startJsonExtract(self):
-        jsonFile = self.jsonInput.getFolderPath()
+        jsonFile = self.jsonInput.getPath()
         download = self.jsonDownloadSwitch.isChecked()
-        changeableTags = [tag for tag in ID3_ALIASES.keys() if eval("self.json{tag.capitalize()}Switch.isChecked()")]
+        changeableTags = [tag for tag in ID3_ALIASES.keys() if eval(f"self.json{tag.capitalize()}Switch.isChecked()")]
 
         if not jsonFile:
             self.statusLabel.setText("Please fill in all fields.")
@@ -303,7 +308,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
 
     def updateLabel(self, message=None):
         # Update the label with the current output buffer
-        self.progressLabel.setText("Output:\n" + self.output_capture.output_buffer)
+        self.progressLabel.setText("Output:\n" + self.outputCapture.outputBuffer)
         if message: self.statusLabel.setText(message)
     
     def toggleJsonSwitch(self):
@@ -311,24 +316,17 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         selected = "QPushButton {}"
         deselected = """
                 QPushButton {
-                    background-color: transparent; /* Hide button body */
-                    border: none; /* Remove border */
-                    color: gray; /* Gray out text */
+                    background-color: rgba(110, 90, 130, 20);
+                    border: none;
+                    color: gray;
                 }
         """
-
-        if self.useJson:
-            self.useJson = False
-            self.urlButton.setStyleSheet(selected)
-            self.jsonButton.setStyleSheet(deselected)
-            self.urlModeGroup.setVisible(True)
-            self.jsonModeGroup.setVisible(False)
-        else:
-            self.useJson = True
-            self.urlButton.setStyleSheet(deselected)
-            self.jsonButton.setStyleSheet(selected)
-            self.urlModeGroup.setVisible(False)
-            self.jsonModeGroup.setVisible(True)
+        self.useJson = not self.useJson
+        self.urlButton.setStyleSheet(deselected if self.useJson else selected)
+        self.jsonButton.setStyleSheet(selected if self.useJson else deselected)
+        self.urlModeGroup.setVisible(not self.useJson)
+        self.jsonModeGroup.setVisible(self.useJson)
+        self.adjustSize()
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
