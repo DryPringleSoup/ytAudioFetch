@@ -1,6 +1,6 @@
 import sys, io
 from functools import partial
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtWidgets, QtCore, QtGui
 from ytAudioFetch import downloadAndTagAudio, downloadOrTagAudioWithJson, ID3_ALIASES
 
 HOME_DIR = QtCore.QDir.homePath()
@@ -108,6 +108,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
     def initUI(self):
         # Set the window title and size
         self.setWindowTitle('YouTube Audio Fetch')
+        self.setWindowIcon(QtGui.QIcon("ytaf.svg"))
         self.setMinimumWidth(600)
 
         # Center the window on the screen

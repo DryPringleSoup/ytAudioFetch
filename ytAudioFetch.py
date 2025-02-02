@@ -155,7 +155,7 @@ def downloadOrTagAudioWithJson(JsonFilePath, download: bool = True, changeableTa
     
     for i, (audioFilePath, data) in enumerate(logData.items()):
         print(Fore.BLUE+f"JSON entry {i+1} of {entries}:", audioFilePath)
-        print(*[ key+": "+value for key, value in data.items()], sep="\n")
+        print(*[ f"{key}: {value}" for key, value in data.items()], sep="\n")
 
         if not os.path.exists(audioFilePath):
             print(Fore.YELLOW+"File does not exist:", audioFilePath)
@@ -165,8 +165,8 @@ def downloadOrTagAudioWithJson(JsonFilePath, download: bool = True, changeableTa
             else:
                 print(Fore.YELLOW+"No downloads allowed. Skipping...")
                 continue
-        
-        tags = MP3(audioFilePath).tags
+
+        print(Fore.GREEN+"Adding tags to:", audioFilePath)
         data: dict[str, str] = { key: value for key, value in data.items() if key in changeableTags }
         addID3Tags(audioFilePath, data)
     
