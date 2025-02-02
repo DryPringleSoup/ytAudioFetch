@@ -120,17 +120,19 @@ def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, use
                 for i in range(3): # Try downloading video 3 times in case of throttling
                     try:
                         verboseInfo = ydl.extract_info(metadata["url"], download=True)
-                        oldAudioFilePath: str = audioFilePath
-                        audioFilePath: str = ydl.prepare_filename(verboseInfo)
-                        audioFilePath: str = changeFileExt(audioFilePath,"mp3")
-                        pathChange = audioFilePath != oldAudioFilePath
-                        if pathChange: print(Fore.YELLOW+"Old audio file path had invalid/invisible characters, using new audio file path:", audioFilePath)
                         break
                     except Exception as e:
                         print(Fore.RED+"Error downloading:", e)
                         print(Fore.YELLOW+"Retrying...")
                 else: print(Fore.RED+f"Failed to download {metadata['url']}") # If all 3 attempts fail, print error
                 
+                oldAudioFilePath: str = audioFilePath
+                audioFilePath: str = ydl.prepare_filename(verboseInfo)
+                audioFilePath: str = changeFileExt(audioFilePath,"mp3")
+                pathChange = audioFilePath != oldAudioFilePath
+                if pathChange: print(Fore.YELLOW+"Old audio file path had invalid/invisible characters, using new audio file path:", audioFilePath)
+                metadata["thumbnail"] = verboseInfo["thumbnail"]
+
                 if shouldLog:
                     #delete old audio log from log file
                     if pathChange:
