@@ -66,6 +66,7 @@ def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, use
             "preferredquality": "192",
         }],
         "ignoreerrors": True,
+        "sanaitize_filename": True,
         "quiet": False,
         "progress_hooks": [hook],
     }
@@ -77,8 +78,8 @@ def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, use
                 print(Fore.RED+"Skipping unavaliable video: "+entry["url"], end="\n\n\n")
                 continue
             
-            audioFilePath: str = ydl.prepare_filename(entry)
-            audioFilePath: str = changeFileExt(audioFilePath,"mp3")
+            audioFilePath: str = ydl.prepare_filename(entry) # form file path from ydl prompts
+            audioFilePath: str = changeFileExt(audioFilePath,"mp3") # change file extension
 
             logFilePath: str = os.path.expanduser("~/ytAudioFetchLog.json")
             audioFileExists: bool = os.path.exists(audioFilePath)
@@ -118,14 +119,23 @@ def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, use
 
                 for i in range(3): # Try downloading video 3 times in case of throttling
                     try:
-                        metadata["thumbnail"] = ydl.extract_info(metadata["url"], download=True)["thumbnail"]
+                        verboseInfo = ydl.extract_info(metadata["url"], download=True)
+                        oldAudioFilePath: str = audioFilePath
+                        audioFilePath: str = ydl.prepare_filename(verboseInfo)
+                        audioFilePath: str = changeFileExt(audioFilePath,"mp3")
+                        pathChange = audioFilePath != oldAudioFilePath
+                        if pathChange: print(Fore.YELLOW+"Old audio file path had invalid/invisible characters, using new audio file path:", audioFilePath)
                         break
                     except Exception as e:
                         print(Fore.RED+"Error downloading:", e)
                         print(Fore.YELLOW+"Retrying...")
-                else: print(Fore.RED+f"Failed to download {metadata['url']}:", e) # If all 3 attempts fail, print error
+                else: print(Fore.RED+f"Failed to download {metadata['url']}") # If all 3 attempts fail, print error
                 
                 if shouldLog:
+                    #delete old audio log from log file
+                    if pathChange:
+                        print(Fore.YELLOW+"Deleting old audio log with old audio file path:", oldAudioFilePath)
+                        deleteAudioLog(oldAudioFilePath, logFilePath)
                     print("Updating log file to include max resolution thumbnail:", metadata["thumbnail"])
                     logData2Json(audioFilePath, metadata, logFilePath)
                 
@@ -289,6 +299,12 @@ def logData2Json(audioFilePath: str, data: dict[str, str], logFilePath: str, qui
 
     with open(logFilePath, "w") as logFile: json.dump(logData, logFile, indent=4)
     if not quiet: print(*[ key.capitalize()+": "+value for key, value in data.items() ], sep="\n")
+
+def deleteAudioLog(audioFilePath: str, logFilePath: str) -> None:
+    if os.path.exists(logFilePath):
+        with open(logFilePath, "r") as logFile: logData = json.load(logFile)
+    if audioFilePath in logData: del logData[audioFilePath]
+    with open(logFilePath, "w") as logFile: json.dump(logData, logFile, indent=4)
 
 def addID3Tags(audioFilePath: str, data: dict[str, str] = None) -> bool:
     """
