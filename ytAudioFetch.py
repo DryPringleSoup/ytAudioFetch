@@ -1,7 +1,7 @@
 import os,requests, yt_dlp, json, re, mimetypes
 from PIL import Image
 from mutagen.mp3 import MP3
-from mutagen.id3 import ID3, WOAS, TIT2, TPE1, APIC
+from mutagen.id3 import ID3, WOAS, TIT2, TPE1, TPUB, APIC
 from typing import Any
 from colorama import Fore, init
 init(autoreset=True)
@@ -10,6 +10,7 @@ ID3_ALIASES = {
     "url": ("WOAS", WOAS),
     "title": ("TIT2", TIT2),
     "artist": ("TPE1", TPE1),
+    "uploader": ("TPUB", TPUB),
     "thumbnail": ("APIC", APIC)
 }
 
@@ -82,8 +83,9 @@ def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, use
             logFilePath: str = os.path.expanduser("~/ytAudioFetchLog.json")
             audioFileExists: bool = os.path.exists(audioFilePath)
             audioLogExists: bool = isAudioLogged(audioFilePath, logFilePath)
-            shouldParse: bool = replacing or audioFileExists or not audioLogExists or not useLog
-            shouldLog: bool = audioFileExists or overwriteLog
+            shouldParse: bool = replacing or not (useLog and audioFileExists and audioLogExists)
+            shouldLog: bool = not audioLogExists or overwriteLog
+
             if shouldParse: # if no log audio data or told not to use existing log, parse the entry data
                 print(Fore.GREEN+"Parsing entry data...")
                 """
@@ -99,18 +101,14 @@ def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, use
                 metadata: dict[str, str] = parseEntryData(entry)
                 
                 # Logging
-                if not audioLogExists:print(Fore.GREEN+"Logging initial data...")
+                if not audioLogExists: print(Fore.GREEN+"Logging initial data...")
                 elif overwriteLog: print(Fore.GREEN+"Overwriting log data...")
                 else: print(Fore.YELLOW+"Cannot overwrite existing log data", logFilePath)
-                if shouldLog:logData2Json(audioFilePath, metadata, logFilePath)
-
+                if shouldLog:logData2Json(audioFilePath, metadata, logFilePath, quiet=False)
             else: # if audio data exists, use it as the metadata
                 print(Fore.YELLOW+"Data already logged in", logFilePath)
                 with open(logFilePath, "r") as logFile: metadata = json.load(logFile)[audioFilePath]
             
-
-            print(Fore.GREEN+"Logging initial data...")
-            logData2Json(audioFilePath, metadata, logFilePath, quiet=False)
             if not replacing and os.path.exists(audioFilePath):
                 print(Fore.YELLOW+"File already exists, skipping: "+metadata["title"], end="\n\n\n")
                 continue
@@ -121,12 +119,11 @@ def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, use
                 for i in range(3): # Try downloading video 3 times in case of throttling
                     try:
                         metadata["thumbnail"] = ydl.extract_info(metadata["url"], download=True)["thumbnail"]
-                        audioFilePath: str = changeFileExt(ydl.prepare_filename(info), "mp3")
+                        break
                     except Exception as e:
-                        if i < 2:
-                            print(Fore.RED+"Error downloading:", e)
-                            print(Fore.YELLOW+"Retrying...")
-                        else: print(Fore.RED+f"Failed to download {metadata['url']}:", e)
+                        print(Fore.RED+"Error downloading:", e)
+                        print(Fore.YELLOW+"Retrying...")
+                else: print(Fore.RED+f"Failed to download {metadata['url']}:", e) # If all 3 attempts fail, print error
                 
                 if shouldLog:
                     print("Updating log file to include max resolution thumbnail:", metadata["thumbnail"])
@@ -137,6 +134,7 @@ def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, use
             print(Fore.GREEN+"Adding tags to:", audioFilePath)
             wasTagged: bool = addID3Tags(audioFilePath, metadata)
             if wasTagged: print(Fore.GREEN+audioFilePath+" has been fully downloaded and tagged", end="\n\n\n")
+        else: print(Fore.BLUE+"Processing of all entries complete", end="\n\n\n")
 
 def downloadOrTagAudioWithJson(JsonFilePath, download: bool = True, changeableTags: list[str] = None) -> None:
     """
@@ -148,7 +146,7 @@ def downloadOrTagAudioWithJson(JsonFilePath, download: bool = True, changeableTa
         changeableTags (list[str], optional): A list of tags that can be changed. Defaults to None which means
         all tags can be changed. If all entries are not included, the ones not included are assumed to be changeable.
     """
-    if changeableTags is None: changeableTags: list[str] = ["url", "title", "artist", "thumbnail"]
+    if changeableTags is None: changeableTags: list[str] = list(ID3_ALIASES.keys())
 
     with open(JsonFilePath, "r") as logFile: logData = json.load(logFile)
     entries = len(logData)
@@ -169,23 +167,7 @@ def downloadOrTagAudioWithJson(JsonFilePath, download: bool = True, changeableTa
         print(Fore.GREEN+"Adding tags to:", audioFilePath)
         data: dict[str, str] = { key: value for key, value in data.items() if key in changeableTags }
         addID3Tags(audioFilePath, data)
-    
-def textfromID3Tags(tagsDict: dict[str, ID3], tagName: str) -> str:
-    """
-    Retrieves the text value from the given ID3 tag.
-
-    Args:
-        tagsDict (dict[str, ID3]): A dictionary of ID3 tags.
-        tagName (str): The name of the tag to retrieve.
-
-    Returns:
-        (str) The text value of the tag or an empty string if it does not exist.
-    """
-
-    if tagName != "thumbnail":
-        tag = tagsDict.get(ID3_ALIASES[tagName][0])
-        return tag.text[0] if tag else f"[No {tagName}]"
-    else: return ""
+    else: print(Fore.BLUE+"Processing of all entries complete", end="\n\n\n")
 
 def simpleAudioDownload(url: str, outputPath: str, returnInfo: bool = False) -> None:
     """
@@ -218,17 +200,17 @@ def simpleAudioDownload(url: str, outputPath: str, returnInfo: bool = False) -> 
         for i in range(3):
             try:
                 info: dict[str, Any] = ydl.extract_info(url, download=True)
-                audioFilePath: str = changeFileExt(ydl.prepare_filename(info), "mp3")
-                os.rename(audioFilePath, outputPath)
-                if returnInfo: return info
                 break
             except Exception as e:
-                if i < 2:
-                    print(Fore.RED+"Error downloading:", e)
-                    print(Fore.YELLOW+"Retrying...")
-                else:
-                    print(Fore.RED+"Failed to download:", e)
-                    return None
+                print(Fore.RED+"Error downloading:", e)
+                print(Fore.YELLOW+"Retrying...")
+        else: # If all 3 attempts fail, print error
+            print(Fore.RED+"Failed to download:", e)
+            return None
+        
+        audioFilePath: str = changeFileExt(ydl.prepare_filename(info), "mp3")
+        os.rename(audioFilePath, outputPath)
+        if returnInfo: return info
 
 def changeFileExt(filename: str, newExt: str) -> str:
     """
@@ -327,15 +309,19 @@ def addID3Tags(audioFilePath: str, data: dict[str, str] = None) -> bool:
         audio = MP3(audioFilePath, ID3=ID3)
         cover: str = data.pop("thumbnail", None)
         for tag, value in data.items():
-            if tag in ID3_ALIASES: audio.tags.add(ID3_ALIASES[tag][1](encoding=3, text=[value if value else f"[No {tag}]"]))
+            if tag in ID3_ALIASES:
+                id3Tag = ID3_ALIASES[tag][1]
+                tagText = value or f"[No {tag}]"
+                print(Fore.MAGENTA+f"Adding {tag} tag:", tagText)
+                audio.tags.add(id3Tag(encoding=3, text=[tagText]))
             else: print(Fore.YELLOW+"Warning!","Unknown tag:", tag)
-        
+
         # Cover path from either online or local source
         if cover:
             isLink: bool = re.match(r"^https?://", cover)
             coverIsTemp: bool = False
             if isLink:
-                cover: str = downloadThumbnail(data["thumbnail"])
+                cover: str = downloadThumbnail(cover)
                 coverIsTemp: bool = True
             elif not os.path.exists(cover): cover: str = "NoCover.jpg"
             elif mimetypes.guess_type(cover)[0] != "image/jpeg":
@@ -345,6 +331,7 @@ def addID3Tags(audioFilePath: str, data: dict[str, str] = None) -> bool:
                 coverIsTemp: bool = True
         else: cover: str = "NoCover.jpg"
 
+        print(Fore.MAGENTA+"Adding cover image:", cover)
         with open(cover, "rb") as img:
             audio.tags.add(APIC(
                 encoding=3,
@@ -417,8 +404,8 @@ def boolInput(inputText: str) -> bool:
 
 if __name__ == "__main__":
     # Keeps asking for input until a non-empty string is entered
-    useJson = boolInput("Extract from JSON file? (y/n):")
-    if useJson:
+    jsonMode = boolInput("Extract from JSON file? (y/n):")
+    if jsonMode:
         ytURL: str = strInput("Enter the YouTube playlist/video URL: ")
         outputDir: str = strInput("Enter the directory to save the MP3 files: ")
         replacing: bool = boolInput("Replace existing files? (y/n): ")

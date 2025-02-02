@@ -1,4 +1,4 @@
-import sys, io
+import sys, io, re
 from functools import partial
 from PyQt5 import QtWidgets, QtCore, QtGui
 from ytAudioFetch import downloadAndTagAudio, downloadOrTagAudioWithJson, ID3_ALIASES
@@ -8,7 +8,7 @@ HOME_DIR = QtCore.QDir.homePath()
 class FileBrowser(QtWidgets.QWidget):
     
     # getExistingDirectory returns string while getOpenFileName returns tuple so this normalize it to work with browse()
-    BROWSE_TYPE = {
+    browseType = {
         "file": partial(QtWidgets.QFileDialog.getOpenFileName, caption="Select File", directory=HOME_DIR, filter="All Files (*)"),
         "folder": lambda self: (QtWidgets.QFileDialog.getExistingDirectory(self, "Select Output Directory", HOME_DIR), ""),
         "json": partial(QtWidgets.QFileDialog.getOpenFileName, caption="Select JSON File", directory=HOME_DIR, filter="JSON Files (*.json);;All Files (*)")
@@ -38,7 +38,7 @@ class FileBrowser(QtWidgets.QWidget):
     
     def browse(self, type):
         """Opens a file dialog to select a something based on the type parameter."""
-        path, _ = FileBrowser.BROWSE_TYPE[type](self)
+        path, _ = FileBrowser.browseType[type](self)
         if path: self.folderInput.setText(path)
 
     def getPath(self):
@@ -47,9 +47,10 @@ class FileBrowser(QtWidgets.QWidget):
 
 # Custom class to capture printed output
 class OutputCapture(io.StringIO):
-    def __init__(self, label):
+    def __init__(self, label1, label2):
         super().__init__()
-        self.label = label
+        self.label1 = label1
+        self.label2 = label2
         self.outputBuffer = ""  # Initialize the output buffer
         self.outputClear = False
         self.original_stdout = sys.stdout
@@ -65,11 +66,16 @@ class OutputCapture(io.StringIO):
         if "\n" in message: self.outputClear = True
         if len(self.outputBuffer) >= 50: self.outputBuffer = self.outputBuffer[:50]+"..."
         
+        # Update status label with video index
+        # regex checks for "['Video' or 'JSON entry'] [num] of [num]"
+        bufferMatch = re.search(r"(?:Video|JSON entry) \d+ of \d+$", self.outputBuffer.strip())
+        if bufferMatch: self.label1.setText("Downloading: " + bufferMatch.group(0))
+
         #Write to console
         self.original_stdout.write(message)
 
         # Update the label with the new message
-        self.label.setText("Output\n"+self.outputBuffer)
+        self.label2.setText("Output:\n"+self.outputBuffer)
 
     def flush(self): pass  # Required for compatibility with some interfaces
 
@@ -93,16 +99,26 @@ class Worker(QtCore.QThread):
 
     def run(self):       
         if self.mode.lower() == "url":
-            downloadAndTagAudio(self.ytURL, self.outputDir, self.replacing, self.useLog)
+            downloadAndTagAudio(self.ytURL, self.outputDir, self.replacing, self.useLog, self.overwriteLog)
             self.outputSignal.emit("Audio download completed.")
         elif self.mode.lower() == "json":
             downloadOrTagAudioWithJson(self.jsonFilePath, self.download, self.changeableTags)
             self.outputSignal.emit("JSON extraction completed.")
 
 class YTAudioFetcherGUI(QtWidgets.QWidget):
+
+    enabledButton = "QPushButton {}"
+    disabledButton = """
+                        QPushButton {
+                            background-color: rgba(110, 90, 130, 20);
+                            border: none;
+                            color: gray;
+                        }
+                    """
+
     def __init__(self):
         super().__init__()
-        self.useJson = True
+        self.jsonMode = True
         self.initUI()
 
     def initUI(self):
@@ -123,20 +139,20 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
 
         # URL and JSON mode toggle
         jsonToggleLayout = QtWidgets.QHBoxLayout()
-        self.urlButton = QtWidgets.QPushButton("Use YouTube URL", self)
+        self.urlButton = QtWidgets.QPushButton("YouTube URL", self)
         self.urlButton.clicked.connect(self.toggleJsonSwitch)
         jsonToggleLayout.addWidget(self.urlButton)
 
-        self.jsonButton = QtWidgets.QPushButton("Use JSON file", self)
+        self.jsonButton = QtWidgets.QPushButton("JSON file", self)
         self.jsonButton.clicked.connect(self.toggleJsonSwitch)
         jsonToggleLayout.addWidget(self.jsonButton)
 
         layout.addLayout(jsonToggleLayout)
 
-        self.urlModeGroup = QtWidgets.QGroupBox("URL", self)
+        self.urlModeGroup = QtWidgets.QGroupBox("Downloads and tags audio from URL", self)
         self.urlModeLayout = QtWidgets.QVBoxLayout()
 
-        self.jsonModeGroup = QtWidgets.QGroupBox("JSON", self)
+        self.jsonModeGroup = QtWidgets.QGroupBox("Tag or download audio with JSON file", self)
         self.jsonModeLayout = QtWidgets.QVBoxLayout()
 
         layout.addWidget(self.urlModeGroup)
@@ -160,8 +176,9 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         # Progress information
         self.progressLabel = QtWidgets.QLabel("Output:\n", self)
         layout.addWidget(self.progressLabel)
+
         # Redirect stdout to capture print statements
-        self.outputCapture = OutputCapture(self.progressLabel)
+        self.outputCapture = OutputCapture(self.statusLabel,self.progressLabel)
         sys.stdout = self.outputCapture
 
         # Set layout and style
@@ -233,28 +250,25 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.jsonTagSelectionLabel = QtWidgets.QLabel("Select tags to extract", self)
         self.jsonOptionsLayout.addWidget(self.jsonTagSelectionLabel)
 
-        jsonTagSelectionLayout = QtWidgets.QHBoxLayout()
         self.jsonUrlSwitch = QtWidgets.QCheckBox("URL", self)
         self.jsonUrlSwitch.setChecked(True)
         self.jsonOptionsLayout.addWidget(self.jsonUrlSwitch)
-        jsonTagSelectionLayout.addWidget(self.jsonUrlSwitch)
 
         self.jsonTitleSwitch = QtWidgets.QCheckBox("Title", self)
         self.jsonTitleSwitch.setChecked(True)
         self.jsonOptionsLayout.addWidget(self.jsonTitleSwitch)
-        jsonTagSelectionLayout.addWidget(self.jsonTitleSwitch)
 
         self.jsonArtistSwitch = QtWidgets.QCheckBox("Artist", self)
         self.jsonArtistSwitch.setChecked(True)
         self.jsonOptionsLayout.addWidget(self.jsonArtistSwitch)
-        jsonTagSelectionLayout.addWidget(self.jsonArtistSwitch)
+
+        self.jsonUploaderSwitch = QtWidgets.QCheckBox("Uploader", self)
+        self.jsonUploaderSwitch.setChecked(True)
+        self.jsonOptionsLayout.addWidget(self.jsonUploaderSwitch)
 
         self.jsonThumbnailSwitch = QtWidgets.QCheckBox("Thumbnail", self)
         self.jsonThumbnailSwitch.setChecked(True)
         self.jsonOptionsLayout.addWidget(self.jsonThumbnailSwitch)
-        jsonTagSelectionLayout.addWidget(self.jsonThumbnailSwitch)
-
-        self.jsonOptionsLayout.addLayout(jsonTagSelectionLayout)
 
         self.jsonOptionsGroup.setLayout(self.jsonOptionsLayout)
         self.jsonOptionsGroup.setVisible(False)  # Initially hide the options group
@@ -267,11 +281,14 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
 
     def toggleUrlOptions(self):
         self.urlOptionsGroup.setVisible(not self.urlOptionsGroup.isVisible())
+        self.verticalCollapse()
     
     def toggleJsonOptions(self):
         self.jsonOptionsGroup.setVisible(not self.jsonOptionsGroup.isVisible())
+        self.verticalCollapse()
     
     def startURLDownload(self):
+        self.disableStartButtons()
         ytURL = self.urlInput.text()
         outputDir = self.urlOutputDirInput.getPath()
         replacing = self.urlReplaceSwitch.isChecked()
@@ -291,6 +308,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.worker.start()
     
     def startJsonExtract(self):
+        self.disableStartButtons()
         jsonFile = self.jsonInput.getPath()
         download = self.jsonDownloadSwitch.isChecked()
         changeableTags = [tag for tag in ID3_ALIASES.keys() if eval(f"self.json{tag.capitalize()}Switch.isChecked()")]
@@ -308,26 +326,37 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.worker.start()
 
     def updateLabel(self, message=None):
-        # Update the label with the current output buffer
-        self.progressLabel.setText("Output:\n" + self.outputCapture.outputBuffer)
-        if message: self.statusLabel.setText(message)
+        self.statusLabel.setText(message)
+        #if message == "Audio download completed." or message == "JSON extraction completed.": renable the buttons
+        if re.match(r"(?:Audio download|JSON extraction) completed.$", message): self.enableStartButtons()
     
     def toggleJsonSwitch(self):
         """Makes the button transparent but keeps its text grayed out."""
-        selected = "QPushButton {}"
-        deselected = """
-                QPushButton {
-                    background-color: rgba(110, 90, 130, 20);
-                    border: none;
-                    color: gray;
-                }
-        """
-        self.useJson = not self.useJson
-        self.urlButton.setStyleSheet(deselected if self.useJson else selected)
-        self.jsonButton.setStyleSheet(selected if self.useJson else deselected)
-        self.urlModeGroup.setVisible(not self.useJson)
-        self.jsonModeGroup.setVisible(self.useJson)
+        enabled = YTAudioFetcherGUI.enabledButton
+        disabled = YTAudioFetcherGUI.disabledButton
+        self.jsonMode = not self.jsonMode
+        self.urlButton.setStyleSheet(disabled if self.jsonMode else enabled)
+        self.jsonButton.setStyleSheet(enabled if self.jsonMode else disabled)
+        self.urlModeGroup.setVisible(not self.jsonMode)
+        self.jsonModeGroup.setVisible(self.jsonMode)
+        self.verticalCollapse()
+
+    def enableStartButtons(self):
+        self.urlStartButton.setEnabled(True)
+        self.urlStartButton.setStyleSheet(YTAudioFetcherGUI.enabledButton)
+        self.jsonStartButton.setEnabled(True)
+        self.jsonStartButton.setStyleSheet(YTAudioFetcherGUI.enabledButton)
+    
+    def disableStartButtons(self):
+        self.urlStartButton.setEnabled(False)
+        self.urlStartButton.setStyleSheet(YTAudioFetcherGUI.disabledButton)
+        self.jsonStartButton.setEnabled(False)
+        self.jsonStartButton.setStyleSheet(YTAudioFetcherGUI.disabledButton)
+
+    def verticalCollapse(self):
+        width = self.width()
         self.adjustSize()
+        self.resize(width, self.height())
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
