@@ -80,9 +80,13 @@ def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, use
             
             audioFilePath: str = ydl.prepare_filename(entry) # form file path from ydl prompts
             audioFilePath: str = changeFileExt(audioFilePath,"mp3") # change file extension
-
             logFilePath: str = os.path.expanduser("~/ytAudioFetchLog.json")
-            audioFileExists: bool = os.path.exists(audioFilePath)
+
+            audioFileExists: bool = os.path.exists(audioFilePath) or checkIfCorrected(audioFilePath, logFilePath)
+            if not replacing and audioFileExists:
+                print(Fore.YELLOW+"File already exists, skipping: "+metadata["title"], end="\n\n\n")
+                continue
+            
             audioLogExists: bool = isAudioLogged(audioFilePath, logFilePath)
             shouldParse: bool = replacing or not (useLog and audioFileExists and audioLogExists)
             shouldLog: bool = not audioLogExists or overwriteLog
@@ -110,10 +114,6 @@ def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, use
                 print(Fore.YELLOW+"Data already logged in", logFilePath)
                 with open(logFilePath, "r") as logFile: metadata = json.load(logFile)[audioFilePath]
             
-            if not replacing and os.path.exists(audioFilePath):
-                print(Fore.YELLOW+"File already exists, skipping: "+metadata["title"], end="\n\n\n")
-                continue
-            
             print(Fore.GREEN+f"Downloading ({metadata['url']}):", metadata["title"])
             if shouldParse:
 
@@ -130,14 +130,18 @@ def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, use
                 audioFilePath: str = ydl.prepare_filename(verboseInfo)
                 audioFilePath: str = changeFileExt(audioFilePath,"mp3")
                 pathChange = audioFilePath != oldAudioFilePath
-                if pathChange: print(Fore.YELLOW+"Old audio file path had invalid/invisible characters, using new audio file path:", audioFilePath)
+                if pathChange:
+                    print(
+                        Fore.YELLOW+"Old audio file path had invalid/invisible characters, using new audio file path",
+                        "Old Path: "+audioFilePath, "New Path: "+oldAudioFilePath, sep="\n"
+                    )
                 metadata["thumbnail"] = verboseInfo["thumbnail"]
 
                 if shouldLog:
                     #delete old audio log from log file
                     if pathChange:
-                        print(Fore.YELLOW+"Deleting old audio log with old audio file path:", oldAudioFilePath)
-                        deleteAudioLog(oldAudioFilePath, logFilePath)
+                        print(Fore.YELLOW+"Moving audio log to current audio file path, old log is now justs points new audio file path")
+                        logData2Json(oldAudioFilePath, { "corrected": audioFilePath }, logFilePath)
                     print("Updating log file to include max resolution thumbnail:", metadata["thumbnail"])
                     logData2Json(audioFilePath, metadata, logFilePath)
                 
@@ -302,11 +306,13 @@ def logData2Json(audioFilePath: str, data: dict[str, str], logFilePath: str, qui
     with open(logFilePath, "w") as logFile: json.dump(logData, logFile, indent=4)
     if not quiet: print(*[ key.capitalize()+": "+value for key, value in data.items() ], sep="\n")
 
-def deleteAudioLog(audioFilePath: str, logFilePath: str) -> None:
+# if a file path was changed because it had bad characters, its log is just { "corrected": newAudioFilePath }, this check for that
+def checkIfCorrected(audioFilePath: str, logFilePath: str) -> None:
+    """Checks if the audio file path has been corrected."""
     if os.path.exists(logFilePath):
         with open(logFilePath, "r") as logFile: logData = json.load(logFile)
-    if audioFilePath in logData: del logData[audioFilePath]
-    with open(logFilePath, "w") as logFile: json.dump(logData, logFile, indent=4)
+    # True if it has been corrected and the corrected path is in the log
+    return "corrected" in logData[audioFilePath] and logData[audioFilePath]["corrected"] in logData
 
 def addID3Tags(audioFilePath: str, data: dict[str, str] = None) -> bool:
     """
