@@ -81,12 +81,8 @@ def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, use
             audioFilePath: str = ydl.prepare_filename(entry) # form file path from ydl prompts
             audioFilePath: str = changeFileExt(audioFilePath,"mp3") # change file extension
             logFilePath: str = os.path.expanduser("~/ytAudioFetchLog.json")
-
-            audioFileExists: bool = os.path.exists(audioFilePath) or checkIfCorrected(audioFilePath, logFilePath)
-            if not replacing and audioFileExists:
-                print(Fore.YELLOW+"File already exists, skipping: "+metadata["title"], end="\n\n\n")
-                continue
             
+            audioFileExists: bool = os.path.exists(audioFilePath) or checkIfCorrected(audioFilePath, logFilePath)
             audioLogExists: bool = isAudioLogged(audioFilePath, logFilePath)
             shouldParse: bool = replacing or not (useLog and audioFileExists and audioLogExists)
             shouldLog: bool = not audioLogExists or overwriteLog
@@ -114,6 +110,10 @@ def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, use
                 print(Fore.YELLOW+"Data already logged in", logFilePath)
                 with open(logFilePath, "r") as logFile: metadata = json.load(logFile)[audioFilePath]
             
+            if not replacing and audioFileExists:
+                print(Fore.YELLOW+"File already exists, skipping: "+metadata["title"], end="\n\n\n")
+                continue
+
             print(Fore.GREEN+f"Downloading ({metadata['url']}):", metadata["title"])
             if shouldParse:
 
