@@ -77,13 +77,20 @@ def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, use
             if entry["duration"] is None:
                 print(Fore.RED+"Skipping unavaliable video: "+entry["url"], end="\n\n\n")
                 continue
-            
+
             audioFilePath: str = ydl.prepare_filename(entry) # form file path from ydl prompts
             audioFilePath: str = changeFileExt(audioFilePath,"mp3") # change file extension
             logFilePath: str = os.path.expanduser("~/ytAudioFetchLog.json")
             
-            audioFileExists: bool = os.path.exists(audioFilePath) or checkIfCorrected(audioFilePath, logFilePath)
-            audioLogExists: bool = isAudioLogged(audioFilePath, logFilePath)
+            if os.path.exists(logFilePath):
+                with open(logFilePath, "r") as logFile: logData = json.load(logFile)
+            else: logData = {}
+            
+            # if a file path was changed because it had bad characters, its log is just { "corrected": newAudioFilePath }, this check for that
+            audioLogExists: bool = audioFilePath in logData
+            if audioLogExists: audioFilePath: str = logData[audioFilePath].get("corrected", audioFilePath)
+            audioLogExists: bool = audioFilePath in logData
+            audioFileExists: bool = os.path.exists(audioFilePath)
             shouldParse: bool = replacing or not (useLog and audioFileExists and audioLogExists)
             shouldLog: bool = not audioLogExists or overwriteLog
 
@@ -243,22 +250,6 @@ def changeFileExt(filename: str, newExt: str) -> str:
         if char == ".": break
     return filename[:len(filename)-i]+newExt
 
-def isAudioLogged(audioFilePath: str, logFilePath: str) -> bool:
-    """
-    Checks if the audio file is already logged.
-    
-    Args:
-        audioFilePath (str): The path to the audio file.
-        logFilePath (str): The path to the log file.
-    
-    Returns:
-        bool: True if the audio file is logged, False otherwise.
-    """
-    if not os.path.exists(logFilePath): return False
-
-    with open(logFilePath, "r") as logFile: logData = json.load(logFile)
-    return audioFilePath in logData
-
 def parseEntryData(data: dict[str, str]) -> dict[str, str]:
     """
     Parses entry data from the YouTube video information.
@@ -305,14 +296,6 @@ def logData2Json(audioFilePath: str, data: dict[str, str], logFilePath: str, qui
 
     with open(logFilePath, "w") as logFile: json.dump(logData, logFile, indent=4)
     if not quiet: print(*[ key.capitalize()+": "+value for key, value in data.items() ], sep="\n")
-
-# if a file path was changed because it had bad characters, its log is just { "corrected": newAudioFilePath }, this check for that
-def checkIfCorrected(audioFilePath: str, logFilePath: str) -> None:
-    """Checks if the audio file path has been corrected."""
-    if os.path.exists(logFilePath):
-        with open(logFilePath, "r") as logFile: logData = json.load(logFile)
-    # True if it has been corrected and the corrected path is in the log
-    return "corrected" in logData.get(audioFilePath, []) and logData[audioFilePath].get("corrected") in logData
 
 def addID3Tags(audioFilePath: str, data: dict[str, str] = None) -> bool:
     """
