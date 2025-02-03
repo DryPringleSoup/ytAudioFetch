@@ -312,7 +312,7 @@ def checkIfCorrected(audioFilePath: str, logFilePath: str) -> None:
     if os.path.exists(logFilePath):
         with open(logFilePath, "r") as logFile: logData = json.load(logFile)
     # True if it has been corrected and the corrected path is in the log
-    return "corrected" in logData[audioFilePath] and logData[audioFilePath]["corrected"] in logData
+    return "corrected" in logData.get(audioFilePath, []) and logData[audioFilePath].get("corrected") in logData
 
 def addID3Tags(audioFilePath: str, data: dict[str, str] = None) -> bool:
     """
