@@ -1,9 +1,7 @@
-import sys, io, re
+import sys, io, re, os
 from functools import partial
 from PyQt5 import QtWidgets, QtCore, QtGui
-from ytAudioFetch import downloadAndTagAudio, downloadOrTagAudioWithJson, ID3_ALIASES
-
-HOME_DIR = QtCore.QDir.homePath()
+from ytAudioFetch import downloadAndTagAudio, downloadOrTagAudioWithJson, ID3_ALIASES, HOME_DIR
 
 class FileBrowser(QtWidgets.QWidget):
     
@@ -40,6 +38,11 @@ class FileBrowser(QtWidgets.QWidget):
         """Opens a file dialog to select a something based on the type parameter."""
         path, _ = FileBrowser.browseType[type](self)
         if path: self.folderInput.setText(path)
+
+    def setPath(self, path):
+        """Sets the selected folder path."""
+        self.folderInput.setText(path)
+
 
     def getPath(self):
         """Returns the selected folder path."""
@@ -82,15 +85,14 @@ class OutputCapture(io.StringIO):
 class Worker(QtCore.QThread):
     outputSignal = QtCore.pyqtSignal(str)
 
-    def __init__(self, mode = None, ytURL = None, outputDir = None, replacing = None, useLog = True, overwriteLog = None, jsonFilePath = None, download = None, changeableTags = None):
+    def __init__(self, mode = None, ytURL = None, outputDir = None, replacing = None, overwriteSave = None, saveFilePath = None, jsonFilePath = None, download = None, changeableTags = None):
         super().__init__()
         self.mode = mode
         if mode.lower() == "url":
             self.ytURL = ytURL
             self.outputDir = outputDir
             self.replacing = replacing
-            self.useLog = useLog
-            self.overwriteLog = overwriteLog
+            self.overwriteSave = overwriteSave
         elif mode.lower() == "json":
             self.jsonFilePath = jsonFilePath
             self.download = download
@@ -99,7 +101,7 @@ class Worker(QtCore.QThread):
 
     def run(self):       
         if self.mode.lower() == "url":
-            downloadAndTagAudio(self.ytURL, self.outputDir, self.replacing, self.useLog, self.overwriteLog)
+            downloadAndTagAudio(self.ytURL, self.outputDir, self.replacing, self.overwriteSave)
             self.outputSignal.emit("Audio download completed.")
         elif self.mode.lower() == "json":
             downloadOrTagAudioWithJson(self.jsonFilePath, self.download, self.changeableTags)
@@ -139,7 +141,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
 
         # URL and JSON mode toggle
         jsonToggleLayout = QtWidgets.QHBoxLayout()
-        self.urlButton = QtWidgets.QPushButton("YouTube URL", self)
+        self.urlButton = QtWidgets.QPushButton("Youtube URL", self)
         self.urlButton.clicked.connect(self.toggleJsonSwitch)
         jsonToggleLayout.addWidget(self.urlButton)
 
@@ -149,10 +151,10 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
 
         layout.addLayout(jsonToggleLayout)
 
-        self.urlModeGroup = QtWidgets.QGroupBox("Downloads and tags audio from URL", self)
+        self.urlModeGroup = QtWidgets.QGroupBox("Download and tag audio from YouTube", self)
         self.urlModeLayout = QtWidgets.QVBoxLayout()
 
-        self.jsonModeGroup = QtWidgets.QGroupBox("Tag or download audio with JSON file", self)
+        self.jsonModeGroup = QtWidgets.QGroupBox("Extract+tag and/or download audio from JSON", self)
         self.jsonModeLayout = QtWidgets.QVBoxLayout()
 
         layout.addWidget(self.urlModeGroup)
@@ -209,14 +211,18 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.urlReplaceSwitch = QtWidgets.QCheckBox("Replace existing MP3 files", self)
         self.urlOptionsLayout.addWidget(self.urlReplaceSwitch)
 
-        # Use log files switch
-        self.urlLogSwitch = QtWidgets.QCheckBox("Use log file for tag data", self)
-        self.urlLogSwitch.setChecked(True)  # Set the checkbox to be checked by default
-        self.urlOptionsLayout.addWidget(self.urlLogSwitch)
-
-        # Overwrite log files switch
-        self.urlOverwriteSwitch = QtWidgets.QCheckBox("Overwrite data in log file", self)
+        # Overwrite save files switch
+        self.urlOverwriteSwitch = QtWidgets.QCheckBox("Overwrite data in save file", self)
         self.urlOptionsLayout.addWidget(self.urlOverwriteSwitch)
+
+        # Label for Save file input
+        self.urlSaveFileLabel = QtWidgets.QLabel("Save file to write to:", self)
+        self.urlOptionsLayout.addWidget(self.urlSaveFileLabel)
+
+        # Save file input
+        self.urlSaveFileInput = FileBrowser("json", "Enter the path of the save file", self)
+        self.urlSaveFileInput.setPath(os.path.join(HOME_DIR, "ytAudioFetchSave.json"))
+        self.urlOptionsLayout.addWidget(self.urlSaveFileInput)
 
         self.urlOptionsGroup.setLayout(self.urlOptionsLayout)
         self.urlOptionsGroup.setVisible(False)  # Initially hide the options group
@@ -292,18 +298,19 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         ytURL = self.urlInput.text()
         outputDir = self.urlOutputDirInput.getPath()
         replacing = self.urlReplaceSwitch.isChecked()
-        useLog = self.urlLogSwitch.isChecked()
-        overwriteLog = self.urlOverwriteSwitch.isChecked()
+        overwriteSave = self.urlOverwriteSwitch.isChecked()
+        saveFile = self.urlSaveFileInput.getPath()
 
-        if not ytURL or not outputDir:
+        if not (ytURL and outputDir and saveFile):
             self.statusLabel.setText("Please fill in all fields.")
+            self.enableStartButtons()
             return
 
         self.statusLabel.setText("Downloading...")
         QtWidgets.QApplication.processEvents()
 
         # Create a worker thread
-        self.worker = Worker(mode="url", ytURL=ytURL, outputDir=outputDir, replacing=replacing, useLog=useLog, overwriteLog=overwriteLog)
+        self.worker = Worker(mode="url", ytURL=ytURL, outputDir=outputDir, replacing=replacing, overwriteSave=overwriteSave, saveFilePath=saveFile)
         self.worker.outputSignal.connect(self.updateLabel)
         self.worker.start()
     
@@ -315,6 +322,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
 
         if not jsonFile:
             self.statusLabel.setText("Please fill in all fields.")
+            self.enableStartButtons()
             return
 
         self.statusLabel.setText("Extracting...")

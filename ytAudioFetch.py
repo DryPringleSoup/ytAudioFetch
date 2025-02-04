@@ -6,6 +6,7 @@ from typing import Any
 from colorama import Fore, init
 init(autoreset=True)
 
+HOME_DIR = os.path.expanduser("~")
 ID3_ALIASES = {
     "url": ("WOAS", WOAS),
     "title": ("TIT2", TIT2),
@@ -17,7 +18,7 @@ ID3_ALIASES = {
 def hook(d):
     if d["status"] == "finished": print("\n[dl hook] Finished downloading info of", d['info_dict']['title'])
 
-def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, useLog: bool = True, overwriteLog: bool = False) -> None:
+def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, overwriteSave: bool = False, saveFilePath: str = os.path.join(HOME_DIR, "ytAudioFetchSave.json")) -> None:
     """
     Downloads audio from a YouTube URL and saves it to the specified directory.
     
@@ -25,10 +26,9 @@ def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, use
         ytURL (str): The YouTube URL.
         outputDir (str): The directory to save the MP3 files.
         replacing (bool, optional): Whether to replace existing files. Defaults to False.
-        useLog (bool, optional): Whether to use the log file for tag data. Defaults to True.
-        overwriteLog (bool, optional): Whether to overwrite the log file. Defaults to False.
+        overwriteSave (bool, optional): Whether to overwrite the save file. Defaults to False.
     
-    The default values are like this to be as undestructive as possible (i.e overwriteLog the least things)
+    The default values are like this to be as undestructive as possible (i.e overwriteSave the least things)
     """
     outputDir: str = os.path.expanduser(outputDir)
     os.makedirs(outputDir, exist_ok=True)
@@ -71,30 +71,29 @@ def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, use
         "progress_hooks": [hook],
     }
 
+    if os.path.exists(saveFilePath):
+        with open(saveFilePath, "r") as saveFile: saveData = json.load(saveFile)
+    else: saveData = {}
+
     with yt_dlp.YoutubeDL(ydlOpts) as ydl:
         for i, entry in enumerate(info["entries"], start=1):
             print(Fore.BLUE+f"Video {i} of {len(info['entries'])}")
             if entry["duration"] is None:
                 print(Fore.RED+"Skipping unavaliable video: "+entry["url"], end="\n\n\n")
                 continue
-
+            
             audioFilePath: str = ydl.prepare_filename(entry) # form file path from ydl prompts
             audioFilePath: str = changeFileExt(audioFilePath,"mp3") # change file extension
-            logFilePath: str = os.path.expanduser("~/ytAudioFetchLog.json")
             
-            if os.path.exists(logFilePath):
-                with open(logFilePath, "r") as logFile: logData = json.load(logFile)
-            else: logData = {}
-            
-            # if a file path was changed because it had bad characters, its log is just { "corrected": newAudioFilePath }, this check for that
-            audioLogExists: bool = audioFilePath in logData
-            if audioLogExists: audioFilePath: str = logData[audioFilePath].get("corrected", audioFilePath)
-            audioLogExists: bool = audioFilePath in logData
+            # if a file path was changed because it had bad characters, its save entry is just { "corrected": newAudioFilePath }, this check for that
+            audioSaveExists: bool = audioFilePath in saveData
+            if audioSaveExists: audioFilePath: str = saveData[audioFilePath].get("corrected", audioFilePath)
+            audioSaveExists: bool = audioFilePath in saveData
             audioFileExists: bool = os.path.exists(audioFilePath)
-            shouldParse: bool = replacing or not (useLog and audioFileExists and audioLogExists)
-            shouldLog: bool = not audioLogExists or overwriteLog
-
-            if shouldParse: # if no log audio data or told not to use existing log, parse the entry data
+            shouldSave: bool = not audioSaveExists or overwriteSave
+            
+            # If you are replacing or the audio file does not exist parse the data, otherwise (not replacing and the audio file exists) skip
+            if replacing or not audioFileExists:
                 print(Fore.GREEN+"Parsing entry data...")
                 """
                 for some reason the max resolution thumbnail is not included
@@ -108,56 +107,54 @@ def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, use
                 entry["thumbnail"] = entry.get("thumbnail", entry["thumbnails"][-1]["url"])
                 metadata: dict[str, str] = parseEntryData(entry)
                 
-                # Logging
-                if not audioLogExists: print(Fore.GREEN+"Logging initial data...")
-                elif overwriteLog: print(Fore.GREEN+"Overwriting log data...")
-                else: print(Fore.YELLOW+"Cannot overwrite existing log data", logFilePath)
-                if shouldLog:logData2Json(audioFilePath, metadata, logFilePath, quiet=False)
-            else: # if audio data exists, use it as the metadata
-                print(Fore.YELLOW+"Data already logged in", logFilePath)
-                with open(logFilePath, "r") as logFile: metadata = json.load(logFile)[audioFilePath]
-            
-            if not replacing and audioFileExists:
-                print(Fore.YELLOW+"File already exists, skipping: "+metadata["title"], end="\n\n\n")
+                # Saving
+                if shouldSave:
+                    print(Fore.GREEN+("Overwriting save data..." if audioSaveExists else "Saving initial data..."))
+                    print(*[ key.capitalize()+": "+value for key, value in saveData.items() ], sep="\n")
+                    saveData[audioFilePath] = metadata
+                else: print(Fore.YELLOW+"Cannot overwrite existing save data")
+            else:
+                print(Fore.YELLOW+"File already exists, skipping: "+entry["title"], end="\n\n\n")
                 continue
 
             print(Fore.GREEN+f"Downloading ({metadata['url']}):", metadata["title"])
-            if shouldParse:
+            for i in range(3): # Try downloading video 3 times in case of throttling
+                try:
+                    verboseInfo = ydl.extract_info(metadata["url"], download=True)
+                    break
+                except Exception as e:
+                    print(Fore.RED+"Error downloading:", e)
+                    print(Fore.YELLOW+"Retrying...")
+            else: print(Fore.RED+f"Failed to download {metadata['url']}") # If all 3 attempts fail, print error
+            
+            oldAudioFilePath: str = audioFilePath
+            audioFilePath: str = ydl.prepare_filename(verboseInfo)
+            audioFilePath: str = changeFileExt(audioFilePath,"mp3")
+            pathChange = audioFilePath != oldAudioFilePath
+            if pathChange:
+                print(
+                    Fore.YELLOW+"Old audio file path had invalid/invisible characters, using new audio file path",
+                    "Old Path: "+audioFilePath, "New Path: "+oldAudioFilePath, sep="\n"
+                )
+            metadata["thumbnail"] = verboseInfo["thumbnail"]
 
-                for i in range(3): # Try downloading video 3 times in case of throttling
-                    try:
-                        verboseInfo = ydl.extract_info(metadata["url"], download=True)
-                        break
-                    except Exception as e:
-                        print(Fore.RED+"Error downloading:", e)
-                        print(Fore.YELLOW+"Retrying...")
-                else: print(Fore.RED+f"Failed to download {metadata['url']}") # If all 3 attempts fail, print error
-                
-                oldAudioFilePath: str = audioFilePath
-                audioFilePath: str = ydl.prepare_filename(verboseInfo)
-                audioFilePath: str = changeFileExt(audioFilePath,"mp3")
-                pathChange = audioFilePath != oldAudioFilePath
+            if shouldSave:
+                #delete old audio save from save file
                 if pathChange:
-                    print(
-                        Fore.YELLOW+"Old audio file path had invalid/invisible characters, using new audio file path",
-                        "Old Path: "+audioFilePath, "New Path: "+oldAudioFilePath, sep="\n"
-                    )
-                metadata["thumbnail"] = verboseInfo["thumbnail"]
-
-                if shouldLog:
-                    #delete old audio log from log file
-                    if pathChange:
-                        print(Fore.YELLOW+"Moving audio log to current audio file path, old log is now justs points new audio file path")
-                        logData2Json(oldAudioFilePath, { "corrected": audioFilePath }, logFilePath)
-                    print("Updating log file to include max resolution thumbnail:", metadata["thumbnail"])
-                    logData2Json(audioFilePath, metadata, logFilePath)
-                
-            else: ydl.download([metadata["url"]])
+                    print(Fore.YELLOW+"Moving audio save to current audio file path, old save is now justs points new audio file path")
+                    saveData[oldAudioFilePath] = { "corrected": audioFilePath }
+                print("Updating save file to include max resolution thumbnail:", metadata["thumbnail"])
+                saveData[audioFilePath] = metadata
             
             print(Fore.GREEN+"Adding tags to:", audioFilePath)
             wasTagged: bool = addID3Tags(audioFilePath, metadata)
             if wasTagged: print(Fore.GREEN+audioFilePath+" has been fully downloaded and tagged", end="\n\n\n")
         else: print(Fore.BLUE+"Processing of all entries complete", end="\n\n\n")
+    
+    if shouldSave:
+        print(Fore.BLUE+"Writing to save file...")
+        with open(saveFilePath, "w") as saveFile: json.dump(saveData, saveFile, indent=4)
+        print(Fore.GREEN+"All data has been properly saved to:", saveFilePath)
 
 def downloadOrTagAudioWithJson(JsonFilePath, download: bool = True, changeableTags: list[str] = None) -> None:
     """
@@ -171,10 +168,10 @@ def downloadOrTagAudioWithJson(JsonFilePath, download: bool = True, changeableTa
     """
     if changeableTags is None: changeableTags: list[str] = list(ID3_ALIASES.keys())
 
-    with open(JsonFilePath, "r") as logFile: logData = json.load(logFile)
-    entries = len(logData)
+    with open(JsonFilePath, "r") as saveFile: saveData = json.load(saveFile)
+    entries = len(saveData)
     
-    for i, (audioFilePath, data) in enumerate(logData.items()):
+    for i, (audioFilePath, data) in enumerate(saveData.items()):
         print(Fore.BLUE+f"JSON entry {i+1} of {entries}:", audioFilePath)
         print(*[ f"{key}: {value}" for key, value in data.items()], sep="\n")
 
@@ -276,26 +273,6 @@ def parseEntryData(data: dict[str, str]) -> dict[str, str]:
         "uploader": uploader,
         "thumbnail": data["thumbnail"]
     }
-
-def logData2Json(audioFilePath: str, data: dict[str, str], logFilePath: str, quiet: bool = True) -> None:
-    """
-    Logs data to a JSON file.
-    
-    Args:
-        audioFilePath (str): The path to the audio file.
-        data (dict[str, str]): The data to log.
-        logFilePath (str): The path to the log file.
-        quiet (bool, optional): Whether to print the data. Defaults to True.
-    """
-    if not quiet: print("Logging data in:", logFilePath)
-    if os.path.exists(logFilePath):
-        with open(logFilePath, "r") as logFile: logData = json.load(logFile)
-    else: logData = {}
-
-    logData[audioFilePath] = data
-
-    with open(logFilePath, "w") as logFile: json.dump(logData, logFile, indent=4)
-    if not quiet: print(*[ key.capitalize()+": "+value for key, value in data.items() ], sep="\n")
 
 def addID3Tags(audioFilePath: str, data: dict[str, str] = None) -> bool:
     """
@@ -411,14 +388,14 @@ def boolInput(inputText: str) -> bool:
 
 if __name__ == "__main__":
     # Keeps asking for input until a non-empty string is entered
-    jsonMode = boolInput("Extract from JSON file? (y/n):")
-    if jsonMode:
+    urlMode = boolInput("Download and tag audio from YouTube? (y/n):")
+    if urlMode:
         ytURL: str = strInput("Enter the YouTube playlist/video URL: ")
         outputDir: str = strInput("Enter the directory to save the MP3 files: ")
         replacing: bool = boolInput("Replace existing files? (y/n): ")
-        useLog: bool = boolInput("Use log file for tag data? (y/n): ")
-        overwriteLog: bool = boolInput("Overwrite data in log file? (y/n): ")
-        downloadAndTagAudio(ytURL, outputDir, replacing, useLog, overwriteLog)
+        overwriteSave: bool = boolInput("Overwrite data in save file? (y/n): ")
+        saveFilePath: str = strInput("Enter the path of the save file: ")
+        downloadAndTagAudio(ytURL, outputDir, replacing, overwriteSave, saveFilePath)
     else:
         jsonFilePath: str = strInput("Enter the path of the JSON File you want to use: ")
         download: bool = boolInput("Do you want to download audio (no means this will only tag existing entries)? (y/n): ")
