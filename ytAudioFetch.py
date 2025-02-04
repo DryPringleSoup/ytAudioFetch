@@ -191,7 +191,9 @@ def downloadOrTagAudioWithJson(JsonFilePath, download: bool = True, changeableTa
         print(Fore.GREEN+"Adding tags to:", audioFilePath)
         data: dict[str, str] = { key: value for key, value in data.items() if key in changeableTags }
         addID3Tags(audioFilePath, data)
-    else: print(Fore.BLUE+"Processing of all entries complete", end="\n\n\n")
+
+        print(Fore.GREEN+audioFilePath+" has been fully downloaded and tagged", end="\n\n\n")
+    else: print(Fore.BLUE+"Processing of all entries complete")
 
 def simpleAudioDownload(url: str, outputPath: str, returnInfo: bool = False) -> None:
     """
