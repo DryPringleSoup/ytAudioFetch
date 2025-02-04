@@ -101,11 +101,15 @@ class Worker(QtCore.QThread):
 
     def run(self):       
         if self.mode.lower() == "url":
-            downloadAndTagAudio(self.ytURL, self.outputDir, self.replacing, self.overwriteSave)
-            self.outputSignal.emit("Audio download completed.")
+            try:
+                downloadAndTagAudio(self.ytURL, self.outputDir, self.replacing, self.overwriteSave)
+                self.outputSignal.emit("Audio download completed.")
+            except Exception as e: self.outputSignal.emit(f"An error occurred when downloading: {e}")
         elif self.mode.lower() == "json":
-            downloadOrTagAudioWithJson(self.jsonFilePath, self.download, self.changeableTags)
-            self.outputSignal.emit("JSON extraction completed.")
+            try: 
+                downloadOrTagAudioWithJson(self.jsonFilePath, self.download, self.changeableTags)
+                self.outputSignal.emit("JSON extraction completed.")
+            except Exception as e: self.outputSignal.emit(f"An error occurred when extracting JSON: {e}")
 
 class YTAudioFetcherGUI(QtWidgets.QWidget):
 
