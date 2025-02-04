@@ -110,7 +110,7 @@ def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, ove
                 # Saving
                 if shouldSave:
                     print(Fore.GREEN+("Overwriting save data..." if audioSaveExists else "Saving initial data..."))
-                    print(*[ key.capitalize()+": "+value for key, value in saveData.items() ], sep="\n")
+                    print(*[ key.capitalize()+": "+value for key, value in metadata.items() ], sep="\n")
                     saveData[audioFilePath] = metadata
                 else: print(Fore.YELLOW+"Cannot overwrite existing save data")
             else:
