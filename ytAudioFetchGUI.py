@@ -85,31 +85,28 @@ class OutputCapture(io.StringIO):
 class Worker(QtCore.QThread):
     outputSignal = QtCore.pyqtSignal(str)
 
-    def __init__(self, mode = None, ytURL = None, outputDir = None, replacing = None, overwriteSave = None, saveFilePath = None, jsonFilePath = None, download = None, changeableTags = None):
+    def __init__(self, mode=None, ytURL=None, outputDir=None, replacing=None, overwriteSave=None, saveFilePath=None, jsonFilePath=None, download=None, changeableTags=None):
         super().__init__()
         self.mode = mode
-        if mode.lower() == "url":
-            self.ytURL = ytURL
-            self.outputDir = outputDir
-            self.replacing = replacing
-            self.overwriteSave = overwriteSave
-        elif mode.lower() == "json":
-            self.jsonFilePath = jsonFilePath
-            self.download = download
-            self.changeableTags = changeableTags
-        else: raise ValueError(f"Invalid mode: {mode}")
+        self.ytURL = ytURL
+        self.outputDir = outputDir
+        self.replacing = replacing
+        self.overwriteSave = overwriteSave
+        self.saveFilePath = saveFilePath
+        self.jsonFilePath = jsonFilePath
+        self.download = download
+        self.changeableTags = changeableTags
 
     def run(self):       
-        if self.mode.lower() == "url":
-            try:
-                downloadAndTagAudio(self.ytURL, self.outputDir, self.replacing, self.overwriteSave)
+        try:
+            if self.mode.lower() == "url":
+                downloadAndTagAudio(self.ytURL, self.outputDir, self.replacing, self.overwriteSave, self.saveFilePath)
                 self.outputSignal.emit("Audio download completed.")
-            except Exception as e: self.outputSignal.emit(f"An error occurred when downloading: {e}")
-        elif self.mode.lower() == "json":
-            try: 
+            elif self.mode.lower() == "json":
                 downloadOrTagAudioWithJson(self.jsonFilePath, self.download, self.changeableTags)
                 self.outputSignal.emit("JSON extraction completed.")
-            except Exception as e: self.outputSignal.emit(f"An error occurred when extracting JSON: {e}")
+            else: raise ValueError(f"Invalid mode: {self.mode}")
+        except Exception as e: self.outputSignal.emit(f"An error occurred: {e}")
 
 class YTAudioFetcherGUI(QtWidgets.QWidget):
 

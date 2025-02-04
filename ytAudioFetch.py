@@ -167,11 +167,11 @@ def downloadOrTagAudioWithJson(JsonFilePath, download: bool = True, changeableTa
         all tags can be changed. If all entries are not included, the ones not included are assumed to be changeable.
     """
     if changeableTags is None: changeableTags: list[str] = list(ID3_ALIASES.keys())
-    jsonFilePath: str = os.path.expanduser(JsonFilePath)
+    
+    JsonFilePath: str = os.path.expanduser(JsonFilePath)
     if not os.path.exists(JsonFilePath):
         print(Fore.RED+"JSON file does not exist:", JsonFilePath)
         return
-
 
     with open(JsonFilePath, "r") as saveFile: saveData = json.load(saveFile)
     entries = len(saveData)
@@ -181,7 +181,7 @@ def downloadOrTagAudioWithJson(JsonFilePath, download: bool = True, changeableTa
         print(*[ f"{key}: {value}" for key, value in data.items()], sep="\n")
 
         if "corrected" in data:
-            print(Fore.YELLOW+"Audio file path had invalid/invisible characters, and had been changed to:", audioFilePath)
+            print(Fore.YELLOW+"Audio file path had invalid/invisible characters, and had been changed to:", audioFilePath, end="\n\n\n")
             continue
 
         if not os.path.exists(audioFilePath):
@@ -235,7 +235,7 @@ def simpleAudioDownload(url: str, outputPath: str, returnInfo: bool = False) -> 
                 print(Fore.RED+"Error downloading:", e)
                 print(Fore.YELLOW+"Retrying...")
         else: # If all 3 attempts fail, print error
-            print(Fore.RED+"Failed to download:", e)
+            print(Fore.RED+"Failed to download: ", url)
             return None
         
         print(Fore.GREEN+"Successfully downloaded:", info["title"])
