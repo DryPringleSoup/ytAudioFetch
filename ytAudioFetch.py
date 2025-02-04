@@ -167,6 +167,11 @@ def downloadOrTagAudioWithJson(JsonFilePath, download: bool = True, changeableTa
         all tags can be changed. If all entries are not included, the ones not included are assumed to be changeable.
     """
     if changeableTags is None: changeableTags: list[str] = list(ID3_ALIASES.keys())
+    jsonFilePath: str = os.path.expanduser(JsonFilePath)
+    if not os.path.exists(JsonFilePath):
+        print(Fore.RED+"JSON file does not exist:", JsonFilePath)
+        return
+
 
     with open(JsonFilePath, "r") as saveFile: saveData = json.load(saveFile)
     entries = len(saveData)
@@ -395,20 +400,26 @@ def boolInput(inputText: str) -> bool:
 
 
 if __name__ == "__main__":
-    # Keeps asking for input until a non-empty string is entered
-    urlMode = boolInput("Download and tag audio from YouTube? (y/n):")
-    if urlMode:
-        ytURL: str = strInput("Enter the YouTube playlist/video URL: ")
-        outputDir: str = strInput("Enter the directory to save the MP3 files: ")
-        replacing: bool = boolInput("Replace existing files? (y/n): ")
-        overwriteSave: bool = boolInput("Overwrite data in save file? (y/n): ")
-        saveFilePath: str = strInput("Enter the path of the save file: ")
-        downloadAndTagAudio(ytURL, outputDir, replacing, overwriteSave, saveFilePath)
-    else:
-        jsonFilePath: str = strInput("Enter the path of the JSON File you want to use: ")
-        download: bool = boolInput("Do you want to download audio (no means this will only tag existing entries)? (y/n): ")
-        availableTags: list[str] = ID3_ALIASES.keys()
-        print("Avaliable tags:", *[f"\t{i+1}: {tag}" for i, tag in enumerate(availableTags)], sep="\n")
-        selectedTags: set[int] = {i for i in range(4) if str(i) in strInput("Enter the numbers of the tags you want to extract: ")}
-        changeableTags: list[str] = [ availableTags[i] for i in selectedTags ]
-        downloadOrTagAudioWithJson(jsonFilePath, download, changeableTags)
+    # Keeps asking for input until a valid mode is entered
+    while True:
+        mode: str = strInput("URL or JSON mode? (1 or 2): ")
+        if mode == "1":
+            ytURL: str = strInput("Enter the YouTube playlist/video URL: ")
+            outputDir: str = strInput("Enter the directory to save the MP3 files: ")
+            replacing: bool = boolInput("Replace existing files? (y/n): ")
+            overwriteSave: bool = boolInput("Overwrite data in save file? (y/n): ")
+            saveFilePath: str = strInput("Enter the path of the save file: ")
+            downloadAndTagAudio(ytURL, outputDir, replacing, overwriteSave, saveFilePath)
+        elif mode == "2":
+            jsonFilePath: str = strInput("Enter the path of the JSON File you want to use: ")
+            download: bool = boolInput("Do you want to download audio (no means this will only tag existing entries)? (y/n): ")
+            availableTags: list[str] = list(ID3_ALIASES.keys())
+            print("Avaliable tags:", *[f"\t{i+1}: {tag}" for i, tag in enumerate(availableTags)], sep="\n")
+            selectedTags: str = strInput("Enter the tags you want to change: ")
+            selectedTags: set[int] = {i for i in range(4) if str(i) in selectedTags}
+            changeableTags: list[str] = [ availableTags[i] for i in selectedTags ]
+            downloadOrTagAudioWithJson(jsonFilePath, download, changeableTags)
+        else:
+            print("Invalid mode. Please enter 1 or 2.")
+            continue
+        break
