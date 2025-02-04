@@ -175,6 +175,10 @@ def downloadOrTagAudioWithJson(JsonFilePath, download: bool = True, changeableTa
         print(Fore.BLUE+f"JSON entry {i+1} of {entries}:", audioFilePath)
         print(*[ f"{key}: {value}" for key, value in data.items()], sep="\n")
 
+        if "corrected" in data:
+            print(Fore.YELLOW+"Audio file path had invalid/invisible characters, and had been changed to:", audioFilePath)
+            continue
+
         if not os.path.exists(audioFilePath):
             print(Fore.YELLOW+"File does not exist:", audioFilePath)
             if download:
@@ -214,8 +218,7 @@ def simpleAudioDownload(url: str, outputPath: str, returnInfo: bool = False) -> 
         "progress_hooks": [hook],
     }
 
-    if not (url or outputPath): raise ValueError(Fore.RED+"Invalid argument: No URL or output path provided.")
-
+    print(Fore.GREEN+"Downloading:", url)
     with yt_dlp.YoutubeDL(ydlOpts) as ydl:
         for i in range(3):
             try:
@@ -228,7 +231,10 @@ def simpleAudioDownload(url: str, outputPath: str, returnInfo: bool = False) -> 
             print(Fore.RED+"Failed to download:", e)
             return None
         
+        print(Fore.GREEN+"Successfully downloaded:", info["title"])
         audioFilePath: str = changeFileExt(ydl.prepare_filename(info), "mp3")
+        print(Fore.GREEN+"Saved to:", audioFilePath)
+        print(Fore.GREEN+"Renaming to:", outputPath)
         os.rename(audioFilePath, outputPath)
         if returnInfo: return info
 
