@@ -18,18 +18,42 @@ ID3_ALIASES = {
 def hook(d):
     if d["status"] == "finished": print("\n[dl hook] Finished downloading info of", d['info_dict']['title'])
 
-def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, overwriteSave: bool = False, saveFilePath: str = os.path.join(HOME_DIR, "ytAudioFetchSave.json")) -> None:
+def ytafURL(arguments: dict) -> None:
     """
     Downloads audio from a YouTube URL and saves it to the specified directory.
     
     Args:
-        ytURL (str): The YouTube URL.
-        outputDir (str): The directory to save the MP3 files.
-        replacing (bool, optional): Whether to replace existing files. Defaults to False.
-        overwriteSave (bool, optional): Whether to overwrite the save file. Defaults to False.
-    
-    The default values are like this to be as undestructive as possible (i.e overwriteSave the least things)
+        arguements (dict): A dictionary containing the following keys:
+            ytURL (str): The URL of the YouTube video or playlist.
+            outputDir (str): The directory where the audio will be saved.
+            shouldDownload (bool, optional): Whether to download the audio file. Defaults to True.
+            shouldTag (bool, optional): Whether to tag the audio file. Defaults to True.
+            shouldSave (bool, optional): Whether to save the tag data to a JSON file. Defaults to True.
+            saveFilePath (str, optional): The path to the save file. Defaults to ~/.ytAudioFetchSave.json.
+            replacing (bool, optional): Whether to replace the audio file if it already exists. Defaults to False.
+            overwriteSave (bool, optional): Whether to overwrite the save file if it already exists. Defaults to False.
+            changeableTags (list[str], optional): A list of tags that can be changed. Defaults to None which means all tags can be changed.
     """
+    ytURL = arguments.get("ytURL")
+    outputDir = arguments.get("outputDir")
+
+
+    if not ytURL: raise ValueError("ytUrl is required is arguement dictionary")
+    if not outputDir: raise ValueError("outputDir is required is arguement dictionary")
+
+    shouldDownload = arguments.get("shouldDownload", True)
+    shouldTag = arguments.get("shouldTag", True)
+    shouldSave = arguments.get("shouldSave", True)
+    
+    if not (shouldDownload or shouldTag or shouldSave):
+        print(Fore.YELLOW+"All operations are set to False.")
+        return
+
+    saveFilePath = arguments.get("saveFilePath", os.path.join(HOME_DIR, ".ytAudioFetchSave.json"))
+    replacing = arguments.get("replacing", False)
+    overwriteSave = arguments.get("overwriteSave", False)
+    changeableTags = arguments.get("changeableTags", list(ID3_ALIASES.keys()))
+
     outputDir: str = os.path.expanduser(outputDir)
     os.makedirs(outputDir, exist_ok=True)
     
@@ -66,7 +90,7 @@ def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, ove
             "preferredquality": "192",
         }],
         "ignoreerrors": True,
-        "sanaitize_filename": True,
+        "sanitize_filename": True,
         "quiet": False,
         "progress_hooks": [hook],
     }
@@ -90,73 +114,79 @@ def downloadAndTagAudio(ytURL: str, outputDir: str, replacing: bool = False, ove
             if audioSaveExists: audioFilePath: str = saveData[audioFilePath].get("corrected", audioFilePath)
             audioSaveExists: bool = audioFilePath in saveData
             audioFileExists: bool = os.path.exists(audioFilePath)
-            shouldSave: bool = not audioSaveExists or overwriteSave
+            # shouldSave is true if the user asked to save in the first place (in the first
+            # place) and either the audio file does not exist or the user asked to overwrite
+            shouldSave: bool = shouldSave and (not audioSaveExists or overwriteSave)
             
             # If you are replacing or the audio file does not exist parse the data, otherwise (not replacing and the audio file exists) skip
-            if replacing or not audioFileExists:
-                print(Fore.GREEN+"Parsing entry data...")
-                """
-                for some reason the max resolution thumbnail is not included
-                when extracting playlists with extract_flat set to True.
-                Even weirder is that the thumbnail is included when extracting
-                a single video because ydl extracts the info the same it does
-                when extract_flat is set to False even though it's set to True.
-                """
-                # if entry was taken from a single video max resolution thumbnail is in entry["thumbnail"]
-                # if entry was taken from a playlist best conpressed resolution thumbnail is in entry["thumbnails"][-1]["url"]
-                entry["thumbnail"] = entry.get("thumbnail", entry["thumbnails"][-1]["url"])
-                metadata: dict[str, str] = parseEntryData(entry)
-                
-                # Saving
-                if shouldSave:
-                    print(Fore.GREEN+("Overwriting save data..." if audioSaveExists else "Saving initial data..."))
-                    print(*[ key.capitalize()+": "+value for key, value in metadata.items() ], sep="\n")
-                    saveData[audioFilePath] = metadata
-                else: print(Fore.YELLOW+"Cannot overwrite existing save data")
-            else:
-                print(Fore.YELLOW+"File already exists, skipping: "+entry["title"], end="\n\n\n")
-                continue
+            if shouldTag or shouldSave:
+                if replacing or not audioFileExists:
+                    print(Fore.GREEN+"Parsing entry data...")
+                    """
+                    for some reason the max resolution thumbnail is not included
+                    when extracting playlists with extract_flat set to True.
+                    Even weirder is that the thumbnail is included when extracting
+                    a single video because ydl extracts the info the same it does
+                    when extract_flat is set to False even though it's set to True.
+                    """
+                    # if entry was taken from a single video max resolution thumbnail is in entry["thumbnail"]
+                    # if entry was taken from a playlist best conpressed resolution thumbnail is in entry["thumbnails"][-1]["url"]
+                    entry["thumbnail"] = entry.get("thumbnail", entry["thumbnails"][-1]["url"])
+                    metadata: dict[str, str] = parseEntryData(entry)
+                    
+                    # Saving
+                    if shouldSave:
+                        print(Fore.GREEN+("Overwriting save data..." if audioSaveExists else "Saving initial data..."))
+                        print(*[ key.capitalize()+": "+value for key, value in metadata.items() ], sep="\n")
+                        saveData[audioFilePath] = metadata
+                    else: print(Fore.YELLOW+"Cannot overwrite existing save data")
+                else:
+                    print(Fore.YELLOW+"File already exists, skipping: "+entry["title"], end="\n\n\n")
+                    continue
+            else: print(Fore.YELLOW+"No (tagging or saving) requested, skipping data parsing...")
+            
 
-            print(Fore.GREEN+f"Downloading ({metadata['url']}):", metadata["title"])
+
+            if shouldDownload: print(Fore.GREEN+f"Downloading ({metadata['url']}):", metadata["title"])
             for i in range(3): # Try downloading video 3 times in case of throttling
                 try:
-                    verboseInfo = ydl.extract_info(metadata["url"], download=True)
+                    verboseInfo = ydl.extract_info(metadata["url"], download=shouldDownload)
                     break
                 except Exception as e:
                     print(Fore.RED+"Error downloading:", e)
                     print(Fore.YELLOW+"Retrying...")
-            else: print(Fore.RED+f"Failed to download {metadata['url']}") # If all 3 attempts fail, print error
+            else: print(Fore.RED+f"Failed to download {'' if shouldDownload else 'information for '}{metadata['url']}") # If all 3 attempts fail, print error
             
-            oldAudioFilePath: str = audioFilePath
-            audioFilePath: str = ydl.prepare_filename(verboseInfo)
-            audioFilePath: str = changeFileExt(audioFilePath,"mp3")
-            pathChange = audioFilePath != oldAudioFilePath
-            if pathChange:
-                print(
-                    Fore.YELLOW+"Old audio file path had invalid/invisible characters, using new audio file path",
-                    "Old Path: "+audioFilePath, "New Path: "+oldAudioFilePath, sep="\n"
-                )
-            metadata["thumbnail"] = verboseInfo["thumbnail"]
-
-            if shouldSave:
-                #delete old audio save from save file
+            if shouldTag or shouldSave:
+                oldAudioFilePath: str = audioFilePath
+                audioFilePath: str = ydl.prepare_filename(verboseInfo)
+                audioFilePath: str = changeFileExt(audioFilePath,"mp3")
+                pathChange = audioFilePath != oldAudioFilePath
                 if pathChange:
-                    print(Fore.YELLOW+"Moving audio save to current audio file path, old save is now justs points new audio file path")
-                    saveData[oldAudioFilePath] = { "corrected": audioFilePath }
-                print("Updating save file to include max resolution thumbnail:", metadata["thumbnail"])
-                saveData[audioFilePath] = metadata
-            
-            print(Fore.GREEN+"Adding tags to:", audioFilePath)
-            wasTagged: bool = addID3Tags(audioFilePath, metadata)
-            if wasTagged: print(Fore.GREEN+audioFilePath+" has been fully downloaded and tagged", end="\n\n\n")
-        else: print(Fore.BLUE+"Processing of all entries complete", end="\n\n\n")
-    
-    if shouldSave:
-        print(Fore.BLUE+"Writing to save file...")
-        with open(saveFilePath, "w") as saveFile: json.dump(saveData, saveFile, indent=4)
-        print(Fore.GREEN+"All data has been properly saved to:", saveFilePath)
+                    print(
+                        Fore.YELLOW+"Old audio file path had invalid/invisible characters, using new audio file path",
+                        "Old Path: "+audioFilePath, "New Path: "+oldAudioFilePath, sep="\n"
+                    )
+                metadata["thumbnail"] = verboseInfo["thumbnail"]
 
-def downloadOrTagAudioWithJson(JsonFilePath, download: bool = True, changeableTags: list[str] = None) -> None:
+                if shouldTag:
+                    print(Fore.GREEN+"Adding tags to:", audioFilePath)
+                    wasTagged: bool = addID3Tags(audioFilePath, metadata)
+                    if wasTagged: print(Fore.GREEN+audioFilePath+" has been fully downloaded and tagged", end="\n\n\n")
+
+                if shouldSave:
+                    #delete old audio save from save file
+                    if pathChange:
+                        print(Fore.YELLOW+"Moving audio save to current audio file path, old save is now justs points new audio file path")
+                        saveData[oldAudioFilePath] = { "corrected": audioFilePath }
+                    print("Updating save file to include max resolution thumbnail:", metadata["thumbnail"])
+                    saveData[audioFilePath] = metadata
+                    print(Fore.BLUE+"Writing to save file...")
+                    with open(saveFilePath, "w") as saveFile: json.dump(saveData, saveFile, indent=4)
+                    print(Fore.GREEN+"All data has been properly saved to:", saveFilePath)
+        else: print(Fore.BLUE+"Processing of all entries complete", end="\n\n\n")
+
+def ytafJSON(JsonFilePath, download: bool = True, changeableTags: list[str] = None) -> None:
     """
     Downloads audio files from YouTube with tag data from a JSON file.
 
@@ -399,27 +429,44 @@ def boolInput(inputText: str) -> bool:
     return input(inputText).lower() in ["y","","yes","true"]
 
 
-if __name__ == "__main__":
-    # Keeps asking for input until a valid mode is entered
-    while True:
+if __name__ == "__main__": # User inputs
+    while True: # Keeps asking for input until a valid mode is entered
         mode: str = strInput("URL or JSON mode? (1 or 2): ")
-        if mode == "1":
-            ytURL: str = strInput("Enter the YouTube playlist/video URL: ")
-            outputDir: str = strInput("Enter the directory to save the MP3 files: ")
-            replacing: bool = boolInput("Replace existing files? (y/n): ")
-            overwriteSave: bool = boolInput("Overwrite data in save file? (y/n): ")
-            saveFilePath: str = strInput("Enter the path of the save file: ")
-            downloadAndTagAudio(ytURL, outputDir, replacing, overwriteSave, saveFilePath)
-        elif mode == "2":
-            jsonFilePath: str = strInput("Enter the path of the JSON File you want to use: ")
-            download: bool = boolInput("Do you want to download audio (no means this will only tag existing entries)? (y/n): ")
+
+        if mode not in ["1", "2"]:
+            print(Fore.RED+"Invalid mode. Please enter 1 or 2.")
+            continue
+        
+        print("Operations:")
+        print("\td: Download audio\tt: Tag audio"+("s: save tags" if mode == "1" else ""))
+        downloadMethod: str = strInput("Include the letters for each of operation you want to perform: ").lower()
+        shouldDownload, shouldTag, shouldSave = "d" in downloadMethod, "t" in downloadMethod, "s" in downloadMethod
+        
+        if not (shouldDownload or shouldTag or shouldSave):
+            print(Fore.RED+"No operations selected. Terminating...")
+            break
+        
+        arguments: dict[str, Any] = { # There were too many arguments so I'm stuff them all in a dictionary
+            "ytURL": strInput("Enter the YouTube playlist/video URL: ") if mode == "1" else None,
+            "outputDir": strInput("Enter the directory to save the MP3 files: ") if mode == "1" else None,
+            "shouldDownload": shouldDownload,
+            "shouldTag": shouldTag,
+            "shouldSave": shouldSave,
+            "saveFilePath": strInput("Enter the path of the JSON save file: ") if shouldSave else None,
+            "replacing": boolInput("Replace existing files? (y/n): ") if shouldDownload else False,
+            "overwriteSave": boolInput("Overwrite data in save file? (y/n): ") if shouldSave else False
+        }
+
+        if shouldTag:
             availableTags: list[str] = list(ID3_ALIASES.keys())
             print("Avaliable tags:", *[f"\t{i+1}: {tag}" for i, tag in enumerate(availableTags)], sep="\n")
             selectedTags: str = strInput("Enter the tags you want to change: ")
             selectedTags: set[int] = {i for i in range(4) if str(i) in selectedTags}
             changeableTags: list[str] = [ availableTags[i] for i in selectedTags ]
-            downloadOrTagAudioWithJson(jsonFilePath, download, changeableTags)
-        else:
-            print("Invalid mode. Please enter 1 or 2.")
-            continue
+            arguments["changeableTags"] = changeableTags
+        else: arguments["changeableTags"] = []
+
+        if mode == "1": ytafURL(arguments)
+        elif mode == "2": ytafJSON(arguments)
+
         break
