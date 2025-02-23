@@ -183,13 +183,7 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], outputDir: s
             except yt_dlp.utils.DownloadError as e: addToSkipList(skipList, entry["url"], e)
         return
 
-    """ '\ufeff' is the unicode byte order marker (BOM)
-    When extracting the flat info, it sometimes appears in titles. The reason why this is bad is because
-    when downloading the verbose info, it doesn't appear in the filename but, when getting the filename from
-    the flat info, it does for some reason. This causes the script to skip tagging the audio file because
-    defined audioFilePath doesn't actually exist since it has the BOM while the actual file doesn't.
-    """
-    audioFilePath = os.path.join(outputDir, changeFileExt(yt_dlp.YoutubeDL(ydlOpts).prepare_filename(entry).replace("\ufeff", ""), "mp3"))
+    audioFilePath = getActualFileName(entry, ydlOpts)
     audioFileExists = os.path.exists(audioFilePath)
     audioSaveExists = audioFilePath in saveData
     shouldDownload = downloading and (replacingFiles or not audioSaveExists or not audioFileExists)
@@ -202,6 +196,16 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], outputDir: s
             for i in range(RETRY_LIMIT):
                 try:
                     verboseInfo = ydl.extract_info(entry["url"], download=shouldDownload)
+
+                    """
+                    For some reason, the verbose extraction doesn't always give the full title which messes up the filename
+                    As an example this video: https://www.youtube.com/watch?v=UnIhRpIT7nc
+                    The full title is "inabakumori - Lagtrain (Vo. Kaai Yuki) / 稲葉曇『ラグトレイン』Vo. 歌愛ユキ"
+                    The verbose extraction only gives: "稲葉曇『ラグトレイン』Vo. 歌愛ユキ" (verboseInfo["title" or "fulltitle"])
+                    This is mad doubly confusing because the concise extraction gives it perfect fine
+                    """
+                    os.rename(getActualFileName(verboseInfo, ydlOpts), audioFilePath)
+
                     # The original, full resolution thumbnail can only be accessed through verbose extraction
                     entry["thumbnail"] = verboseInfo["thumbnail"]
                     break
@@ -320,6 +324,10 @@ def processEntryJSON(audioFilePath: str, data: Dict[str, Dict[str, str]], ydlOpt
         if wasTagged: print(Fore.GREEN + audioFilePath + " has been fully downloaded and tagged")
         else: addToSkipList(skipList, audioFilePath, result)
 
+def getActualFileName(infoDict: Dict[str, Any], ydlOpts: Dict[str, Any]) -> str:
+    """Returns the actual file name of a video from its info dictionary."""
+    return os.path.normpath( changeFileExt( yt_dlp.YoutubeDL(ydlOpts).prepare_filename(infoDict), "mp3" ) )
+
 def addToSkipList(skipList: List[Tuple[str, str]], ytURL: str, error: Union[yt_dlp.utils.DownloadError, str]):
     """Adds an entry to the skip list."""
     if isinstance(error, yt_dlp.utils.DownloadError):
@@ -400,16 +408,7 @@ def updateSaveData(audioFilePath: str, metadata: Dict[str, str], saveData: Dict,
     print(Fore.GREEN + "All data has been properly saved to:", saveFilePath)
 
 def changeFileExt(filename: str, newExt: str) -> str:
-    """
-    Changes the file extension of the given filename.
-    
-    Args:
-        filename (str): The original filename.
-        newExt (str): The new file extension.
-    
-    Returns:
-        str: The filename with the new extension.
-    """
+    """Changes the file extension of the given filename."""
     for i, char in enumerate(filename[::-1]):
         if char == ".": break
     return filename[:len(filename)-i]+newExt
@@ -452,6 +451,9 @@ def addID3Tags(audioFilePath: str, data: Dict[str, str] = None) -> Tuple[str, bo
     Args:
         audioFilePath (str): The path to the audio file.
         data (Dict[str, str], optional): The data for the ID3 tags. Defaults to None.
+    
+    Returns:
+        Tuple[str, bool]: A tuple containing the message and a boolean indicating whether the operation was successful.
     """
     if not os.path.exists(audioFilePath):
         print(Fore.RED+"Warning!","Audio file does not exist:", audioFilePath)
