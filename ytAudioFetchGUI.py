@@ -1,7 +1,7 @@
 import sys, io, re, os
 from functools import partial
 from PyQt5 import QtWidgets, QtCore, QtGui
-from ytAudioFetch import downloadAndTagAudio, downloadOrTagAudioWithJson, ID3_ALIASES, HOME_DIR
+from ytAudioFetch import ytafURL, ytafJSON, ID3_ALIASES, HOME_DIR
 
 class FileBrowser(QtWidgets.QWidget):
     
@@ -100,10 +100,10 @@ class Worker(QtCore.QThread):
     def run(self):       
         try:
             if self.mode.lower() == "url":
-                downloadAndTagAudio(self.ytURL, self.outputDir, self.replacing, self.overwriteSave, self.saveFilePath)
+                ytafURL(self.ytURL, self.outputDir, self.replacing, self.overwriteSave, self.saveFilePath)
                 self.outputSignal.emit("Audio download completed.")
             elif self.mode.lower() == "json":
-                downloadOrTagAudioWithJson(self.jsonFilePath, self.download, self.changeableTags)
+                ytafJSON(self.jsonFilePath, self.download, self.changeableTags)
                 self.outputSignal.emit("JSON extraction completed.")
             else: raise ValueError(f"Invalid mode: {self.mode}")
         except Exception as e: self.outputSignal.emit(f"An error occurred: {e}")
