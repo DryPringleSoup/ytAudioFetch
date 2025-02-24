@@ -344,6 +344,7 @@ def addToSkipList(skipList: List[Tuple[str, str]], ytURL: str, error: Union[yt_d
                 error = reason
                 break
         if error == "Video unavailable": error += ". Link likely points to non-existent video."
+        if error == "Forbidden": error += ". Check your internet and/or try to download again."
     skipList.append((ytURL, error))
 
 def extractBasicInfo(ytURL: str, outputDir: str, skipList: List[Tuple[str, str]]) -> Dict:
