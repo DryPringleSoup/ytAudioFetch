@@ -13,7 +13,6 @@ If you're on linux just download the ytafLinuxInstaller and run it
 2. Create virtual environment
    ```bash
    python -m venv ytafenv
-
    ```
 3. Activate environment
   - On Windows
@@ -29,3 +28,27 @@ If you're on linux just download the ytafLinuxInstaller and run it
    ```bash
    pip install -r requirements.txt
    ```
+
+5. Run GUI
+   ```bash
+   python ytAudioFetchGUI.py
+   ```
+
+Copy and paste
+- Windows
+    ```bash
+    git clone https://github.com/DryPringleSoup/ytAudioFetch.git
+    python -m venv ytafenv
+    ytafenv\Scripts\activate
+    pip install -r requirements.txt
+    python ytAudioFetchGUI.py
+    ```
+
+- Linux
+    ```bash
+    git clone https://github.com/DryPringleSoup/ytAudioFetch.git
+    python -m venv ytafenv
+    source ytafenv\bin\activate
+    pip install -r requirements.txt
+    python ytAudioFetchGUI.py
+    ```

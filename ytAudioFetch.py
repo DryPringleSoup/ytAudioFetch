@@ -1,4 +1,4 @@
-import os, requests, yt_dlp, json, re, mimetypes
+import os, requests, yt_dlp, json, re, mimetypes, logging
 from PIL import Image
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, WOAS, TIT2, TPE1, TPUB, APIC
@@ -86,13 +86,9 @@ def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
         print("\n")
     else: print(Fore.BLUE + "Processing of all entries complete", end="\n\n\n")
     
-    if skipList: # Report skipped entries
-        print(Fore.RED + "The following videos had to be skipped:")
-        for url, error in skipList: print(f"\t{url}: {error}")
-    
     return skipList
 
-def ytafJSON(arguments: Dict[str, Any]) -> None:
+def ytafJSON(arguments: Dict[str, Any]) -> List[Tuple[str, str]]:
     """
     Args:
         arguments (Dict): A dictionary containing the following keys:
@@ -125,10 +121,6 @@ def ytafJSON(arguments: Dict[str, Any]) -> None:
         )
         print("\n")
     else: print(Fore.BLUE + "Processing of all entries complete", end="\n\n\n")
-    
-    if skipList: # Report skipped entries
-        print(Fore.RED + "The following entries had to be skipped:")
-        for audioFilePath, error in skipList: print(f"\t{audioFilePath}: {error}")
     
     return skipList
 
@@ -571,16 +563,16 @@ def boolInput(inputText: str) -> bool:
 
 if __name__ == "__main__": # User inputs
     while True: # Keeps asking for input until a valid mode is entered
-        mode = strInput("URL or JSON mode? (1 or 2): ")
+        mode = strInput("URL or JSON mode? (0 or 1): ")
 
-        if mode not in ["1", "2"]:
-            print(Fore.RED+"Invalid mode. Please enter 1 or 2.")
+        if mode not in ["0", "1"]: # Yes I know that I could probably make this a boolInput but this is incase I'd ever want to add more modes
+            print(Fore.RED+"Invalid mode. Please enter 0 or 1.")
             continue
         
         print("Operations:")
-        print("\td: Download audio\tt: Tag audio"+("\ts: save tags" if mode == "1" else ""))
+        print("\td: Download audio\tt: Tag audio"+("\ts: save tags" if mode == "0" else ""))
         downloadMethod = strInput("Include the letters for each of operation you want to perform: ").lower()
-        downloading, tagging, saving = "d" in downloadMethod, "t" in downloadMethod, "s" in downloadMethod and mode == "1"
+        downloading, tagging, saving = "d" in downloadMethod, "t" in downloadMethod, "s" in downloadMethod and mode == "0"
         
         if not (downloading or tagging or saving):
             print(Fore.RED+"No operations selected. Terminating...")
@@ -599,9 +591,9 @@ if __name__ == "__main__": # User inputs
             break
 
         arguments = { # There were too many arguments so I'm stuff them all in a dictionary
-            "ytURL": strInput("Enter the YouTube playlist/video URL: ") if mode == "1" else None,
-            "outputDir": strInput("Enter the directory to save the MP3 files: ") if mode == "1" else None,
-            "saveFilePath": strInput("Enter the path of the JSON save file: ") if mode == "2" or saving else None,
+            "ytURL": strInput("Enter the YouTube playlist/video URL: ") if mode == "0" else None,
+            "outputDir": strInput("Enter the directory to save the MP3 files: ") if mode == "0" else None,
+            "saveFilePath": strInput("Enter the path of the JSON save file: ") if mode == "1" or saving else None,
             "downloading": downloading,
             "tagging": tagging,
             "saving": saving,
@@ -611,7 +603,11 @@ if __name__ == "__main__": # User inputs
         }
 
         print("\n\n")
-        if mode == "1": ytafURL(arguments)
-        elif mode == "2": ytafJSON(arguments)
+        if mode == "0": skipList = ytafURL(arguments)
+        elif mode == "1": skipList = ytafJSON(arguments)
 
+        if skipList: # Report skipped entries
+            print(Fore.RED + f"The following {['videos', 'entries'][int(mode)]} had to be skipped:")
+            for thing, error in skipList: print(f"\t{thing}: {error}")
+        
         break

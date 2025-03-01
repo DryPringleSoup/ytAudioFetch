@@ -1,7 +1,61 @@
-import sys, io, re, os, time, types
+import sys, io, re, os
 from functools import partial
 from PyQt5 import QtWidgets, QtCore, QtGui
 from ytAudioFetch import ytafURL, ytafJSON, ID3_ALIASES, HOME_DIR
+
+class OutputCapture(io.StringIO):
+    def __init__(self, label1, label2):
+        super().__init__()
+        self.label1 = label1
+        self.label2 = label2
+        self.outputBuffer = ""  # Initialize the output buffer
+        self.outputClear = False
+        self.original_stdout = sys.stdout
+
+    def write(self, message):
+        # Store the newest message in the buffer
+        # if there's a newline, clear the buffer
+        if self.outputClear:
+            if message.strip():
+                self.outputBuffer = message
+                self.outputClear = False
+        else: self.outputBuffer += message
+        if "\n" in message: self.outputClear = True
+        if len(self.outputBuffer) >= 50: self.outputBuffer = self.outputBuffer[:50]+"..."
+        
+        # Update status label with video index
+        # regex checks for "['Video' or 'JSON entry'] [num] of [num]"
+        bufferMatch = re.search(r"(?:Video|JSON entry) \d+ of \d+$", self.outputBuffer.strip())
+        if bufferMatch: self.label1.setText("Downloading: " + bufferMatch.group(0))
+
+        #Write to console
+        self.original_stdout.write(message)
+
+        # Update the label with the new message
+        self.label2.setText("Output:\n"+self.outputBuffer)
+
+    def flush(self): pass  # Required for compatibility with some interfaces
+
+class Worker(QtCore.QThread):
+    outputSignal = QtCore.pyqtSignal(str)
+
+    def __init__(self, mode, arguments):
+        super().__init__()
+        self.mode = mode
+        self.arguements = arguments
+
+    def run(self):       
+        try:
+            if self.mode == 0: skipList = ytafURL(self.arguements)
+            elif self.mode == 1: skipList = ytafJSON(self.arguements)
+            else: raise ValueError(f"Invalid mode: {self.mode}")
+
+            if skipList:
+                skipString = ''.join( [f"\n\t{thing}: {error}" for thing, error in skipList] )
+                skiptype = ['videos', 'entries'][self.mode]
+                self.outputSignal.emit(f"The following {skiptype} had to be skipped:{skipString}")
+            else: self.outputSignal.emit("Download completed.")
+        except Exception as e: self.outputSignal.emit(f"An error occurred: {e}")
 
 def strikeText(self, event): # QtLineEdit and QtCheckBox don't use strike through so this is a workaround
     super(type(self), self).paintEvent(event)
@@ -144,6 +198,10 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.scriptModeGroup = QtWidgets.QGroupBox(self) #puts input field in box with a title
         self.scriptModeGroup.setLayout(self.scriptModeLayout)
         self.layout.addWidget(self.scriptModeGroup)
+
+        # Redirect stdout to capture print statements
+        self.outputCapture = OutputCapture(self.statusLabel,self.outputLabel)
+        sys.stdout = self.outputCapture
 
         self.setLayout(self.layout)
 
@@ -345,12 +403,19 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.isProcessing = True
         self.statusLabel.setText("Processing...")
         QtWidgets.QApplication.processEvents() # used to force the GUI to update because updates happen every GUI event loop when this for loop blocks
-        for i in range(10):
-            print(i, end=" ")
-            time.sleep(0.5)
-        else: print()
+
+        # Create a worker thread
+        self.worker = Worker(mode=self.scriptMode, arguments=arguDict)
+        self.worker.outputSignal.connect(self.updateLabel)
+        self.worker.start()
+
         self.isProcessing = False
         self.startButton.setDisabled(False)
+    
+    def updateLabel(self, message=None):
+        self.statusLabel.setText(message)
+        #if message == "Audio download completed." or message == "JSON extraction completed.": renable the buttons
+        if re.match(r"(?:Audio download|JSON extraction) completed.$", message): self.enableStartButtons()
 
 
 if __name__ == '__main__':
