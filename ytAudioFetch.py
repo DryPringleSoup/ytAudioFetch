@@ -1,4 +1,4 @@
-import os, requests, yt_dlp, json, re, mimetypes, logging
+import os, requests, yt_dlp, json, re, mimetypes
 from PIL import Image
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, WOAS, TIT2, TPE1, TPUB, APIC

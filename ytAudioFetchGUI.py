@@ -190,6 +190,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.scriptModeLayout.addStretch() # stops the widgets from being spread across the window by pushing them to the top or bottom
         
         self.statusLabel = QtWidgets.QLabel(self)
+        self.statusLabel.setWordWrap(True)
         self.scriptModeLayout.addWidget(self.statusLabel)
 
         self.outputLabel = QtWidgets.QLabel("Output:", self)

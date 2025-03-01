@@ -21,7 +21,7 @@ If you're on linux just download the ytafLinuxInstaller and run it
      ```
   - On Linux
      ```bash
-     source ytafenv\bin\activate
+     source ytafenv/bin/activate
      ```
 
 4. Install dependencies
