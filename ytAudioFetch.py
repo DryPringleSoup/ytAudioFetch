@@ -51,8 +51,8 @@ def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
             tagging (bool, optional): Whether to tag the audio file. Defaults to True.
             saving (bool, optional): Whether to save the tag data to a JSON file. Defaults to True.
             replacingFiles (bool, optional): Whether to replace the audio file if it already exists. Defaults to False.
-            overwriteSave (bool, optional): Whether to overwrite the save file if it already exists. Defaults to False.
             changeableTags (List[str], optional): A list of tags that can be changed. Defaults to None which means all tags can be changed.
+            overwriteSave (bool, optional): Whether to overwrite the save file if it already exists. Defaults to False.
     
     Returns:
         List[Tuple[str, str]]: A list of tuples each containing the link to a skipped video/playlist and the reason for skipping.
@@ -61,7 +61,7 @@ def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
     params = validateAndPrepareArgsURL(arguments)
     if params is None: return []
     ( ytURL, outputDir, saveFilePath, downloading, tagging,
-      saving, replacingFiles, overwriteSave, changeableTags ) = params
+      saving, replacingFiles, changeableTags, overwriteSave ) = params
 
     skipList = []
     
@@ -132,7 +132,7 @@ def ytafJSON(arguments: Dict[str, Any]) -> None:
     
     return skipList
 
-def validateAndPrepareArgsURL(arguments: Dict) -> Tuple[str, str, str, bool, bool, bool, bool, bool, List[str]]:
+def validateAndPrepareArgsURL(arguments: Dict) -> Tuple[str, str, str, bool, bool, bool, bool, List[str], bool]:
     """Validates and prepares the input arguments for the ytafURL function."""
     ytURL = arguments.get("ytURL")
     outputDir = arguments.get("outputDir")
@@ -146,14 +146,18 @@ def validateAndPrepareArgsURL(arguments: Dict) -> Tuple[str, str, str, bool, boo
         print(Fore.YELLOW + "All operations are set to False.")
         return None  # Early exit can be handled in the caller
 
+    changeableTags = arguments.get("changeableTags", list(ID3_ALIASES))
+    if not (downloading or changeableTags): # Since this passed previous check, if downloading is false either tagging or saving must be true
+        print(Fore.YELLOW + "Tagging or saving requires at least one tag to be changeable.")
+        return None
+
     saveFilePath = os.path.expanduser( arguments.get("saveFilePath", os.path.join(HOME_DIR, ".ytAudioFetchSave.json")))
     replacingFiles = arguments.get("replacingFiles", False)
     overwriteSave = arguments.get("overwriteSave", False)
-    changeableTags = arguments.get("changeableTags", list(ID3_ALIASES))
     outputDir = os.path.expanduser(outputDir)
     os.makedirs(outputDir, exist_ok=True)
     
-    return ytURL, outputDir, saveFilePath, downloading, tagging, saving, replacingFiles, overwriteSave, changeableTags
+    return ytURL, outputDir, saveFilePath, downloading, tagging, saving, replacingFiles, changeableTags, overwriteSave
 
 def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], outputDir: str, saveData: Dict[str, Dict[str, str]],
                   saveFilePath: str, downloading: bool, tagging: bool, saving: bool, replacingFiles: bool,
@@ -186,9 +190,9 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], outputDir: s
     audioFilePath = getActualFileName(entry, ydlOpts)
     audioFileExists = os.path.exists(audioFilePath)
     audioSaveExists = audioFilePath in saveData
-    shouldDownload = downloading and (replacingFiles or not audioSaveExists or not audioFileExists)
-    shouldTag = tagging and changeableTags and audioFileExists
-    shouldSave = saving and (overwriteSave or not audioSaveExists)
+    shouldDownload = downloading and (replacingFiles or not audioFileExists)
+    shouldTag = tagging and changeableTags and (audioFileExists or shouldDownload)
+    shouldSave = saving and changeableTags and (overwriteSave or not audioSaveExists)
 
     if shouldDownload or ((shouldTag or shouldSave) and "thumbnail" in changeableTags):
         print(Fore.GREEN + f"{'Downloading' if shouldDownload else 'Extracting info for'} ({entry['url']}):", entry["title"])
@@ -224,7 +228,7 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], outputDir: s
                 return
 
     audioFileExists = os.path.exists(audioFilePath)
-    shouldTag = tagging and changeableTags and audioFileExists
+    shouldTag = shouldTag and audioFileExists
     
     if shouldTag or shouldSave:
         print(Fore.GREEN + "Parsing entry data...")
@@ -255,9 +259,13 @@ def validateAndPrepareArgsJSON(arguments: Dict) -> Tuple[str, bool, bool, bool, 
         print(Fore.YELLOW+"All operations are set to False.")
         return None  # Early exit can be handled in the caller
     
+    changeableTags = arguments.get("changeableTags", list(ID3_ALIASES))
+
+    if not (downloading or changeableTags): # Since this passed previous check, if downloading is false either tagging or saving must be true
+        print(Fore.YELLOW + "Tagging requires at least one tag to be changeable.")
+
     saveFilePath = os.path.expanduser(saveFilePath)
     replacingFiles = arguments.get("replacingFiles", False)
-    changeableTags = arguments.get("changeableTags", list(ID3_ALIASES))
     
     return saveFilePath, downloading, tagging, replacingFiles, changeableTags
 
@@ -578,6 +586,18 @@ if __name__ == "__main__": # User inputs
             print(Fore.RED+"No operations selected. Terminating...")
             break
         
+        if tagging or saving:
+            availableTags = list(ID3_ALIASES)
+            print("Avaliable tags:", *[f"\t{i+1}: {tag}" for i, tag in enumerate(availableTags)], sep="\n")
+            selectedTags = strInput("Enter the tags you want to change: ")
+            selectedTags = {i for i in range(1,len(availableTags)+1) if str(i) in selectedTags}
+            changeableTags = [ availableTags[i-1] for i in selectedTags ]
+        else: changeableTags = []
+
+        if not (downloading or changeableTags): # Since this passed previous check, if downloading is false either tagging or saving must be true
+            print(Fore.YELLOW + "Tagging or saving requires at least one tag to be changeable.")
+            break
+
         arguments = { # There were too many arguments so I'm stuff them all in a dictionary
             "ytURL": strInput("Enter the YouTube playlist/video URL: ") if mode == "1" else None,
             "outputDir": strInput("Enter the directory to save the MP3 files: ") if mode == "1" else None,
@@ -586,17 +606,9 @@ if __name__ == "__main__": # User inputs
             "tagging": tagging,
             "saving": saving,
             "replacingFiles": boolInput("Replace existing files? (y/n): ") if downloading else False,
+            "changeableTags": changeableTags,
             "overwriteSave": boolInput("Overwrite data in save file? (y/n): ") if saving else False
         }
-
-        if tagging or saving:
-            availableTags = list(ID3_ALIASES)
-            print("Avaliable tags:", *[f"\t{i+1}: {tag}" for i, tag in enumerate(availableTags)], sep="\n")
-            selectedTags = strInput("Enter the tags you want to change: ")
-            selectedTags = {i for i in range(1,len(availableTags)+1) if str(i) in selectedTags}
-            changeableTags = [ availableTags[i-1] for i in selectedTags ]
-            arguments["changeableTags"] = changeableTags
-        else: arguments["changeableTags"] = []
 
         print("\n\n")
         if mode == "1": ytafURL(arguments)
