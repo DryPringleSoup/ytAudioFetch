@@ -54,7 +54,7 @@ class Worker(QtCore.QThread):
                 skipString = ''.join( [f"\n\t{thing}: {error}" for thing, error in skipList] )
                 skiptype = ['videos', 'entries'][self.mode]
                 self.outputSignal.emit(f"The following {skiptype} had to be skipped:{skipString}")
-            else: self.outputSignal.emit("Download completed.")
+            else: self.outputSignal.emit("Process completed without failure.")
         except Exception as e: self.outputSignal.emit(f"An error occurred: {e}")
 
 def strikeText(self, event): # QtLineEdit and QtCheckBox don't use strike through so this is a workaround
