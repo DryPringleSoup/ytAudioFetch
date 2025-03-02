@@ -182,7 +182,7 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], outputDir: s
     audioFilePath = getActualFileName(entry, ydlOpts)
     audioFileExists = os.path.exists(audioFilePath)
     audioSaveExists = audioFilePath in saveData
-    shouldDownload = downloading and (replacingFiles or not audioFileExists)
+    shouldDownload = downloading and (replacingFiles or not audioSaveExists or not audioFileExists)
     shouldTag = tagging and changeableTags and (audioFileExists or shouldDownload)
     shouldSave = saving and changeableTags and (overwriteSave or not audioSaveExists)
 
