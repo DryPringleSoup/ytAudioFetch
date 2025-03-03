@@ -630,7 +630,7 @@ if __name__ == "__main__": # User inputs
             "verboseSkipList": boolInput("Verbose skip list (show all operations skipped)? (y/n): ")
         }
 
-        arguments["checkSave"]: bool = boolInput("Check save file for existing files? (y/n): ") if mode == "1" and downloading and not arguments["replacingFiles"] else False,
+        arguments["checkSave"] = boolInput("Check save file for existing files? (y/n): ") if mode == "1" and downloading and not arguments["replacingFiles"] else False,
 
         print("\n\n")
         if mode == "0": skipList = ytafURL(arguments)
