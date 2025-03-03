@@ -203,19 +203,14 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.startButton = QtWidgets.QPushButton("𝙎 𝙏 𝘼 𝙍 𝙏", self)
         self.startButton.clicked.connect(self.startYTDLP)
         self.scriptModeLayout.addWidget(self.startButton)
-
-        self.scriptModeLayout.addStretch() # stops the widgets from being spread across the window by pushing them to the top or bottom
         
+        # Using a QTextEdit instead of QLabel because it allows for scrolling and text highlighing/copying
         self.statusLabel = QtWidgets.QTextEdit(self)
         self.statusLabel.setReadOnly(True)  # Make the text read-only
-        self.statusLabel.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
-        self.statusLabel.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
-        self.statusLabel.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
         self.statusLabel.setLineWrapMode(QtWidgets.QTextEdit.NoWrap)
-        self.statusLabel.setFixedHeight(100)
-        self.statusLabel.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
-
-        self.scriptModeLayout.addWidget(self.statusLabel)
+        self.statusLabel.setMinimumHeight(50)  # Adjust this value as needed
+        self.statusLabel.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Ignored)
+        self.scriptModeLayout.addWidget(self.statusLabel,1)
 
         self.outputLabel = QtWidgets.QLabel("Output:", self)
         self.scriptModeLayout.addWidget(self.outputLabel)
