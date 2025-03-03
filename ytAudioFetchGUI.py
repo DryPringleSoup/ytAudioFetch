@@ -235,7 +235,6 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
             self.urlInput,
             self.outputDirInput,
             self.operationSwitchsDict["save tags"],
-            self.checkSaveSwitch,
             self.tagExistingSwitch,
             self.overwriteSavesSwitch,
             self.saveFilePathInputLabel
@@ -276,7 +275,6 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         extracting = (self.scriptMode == 0 and (tagging or saving)) or (self.scriptMode == 1 and tagging)
 
         self.replaceFilesSwitch.setEnabled(downloading)
-        self.checkSaveSwitch.setEnabled(downloading)
         self.tagExistingSwitch.setEnabled(tagging)
         self.tagSelectionLabel.setEnabled(extracting)
         self.tagsGroup.setEnabled(extracting)
@@ -316,12 +314,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.initOperationsCheckList() # checks for downloading, tagging, and saving
 
         self.replaceFilesSwitch = StrikableCheckBox("replace existing files", self)
-        self.replaceFilesSwitch.stateChanged.connect(self.setCheckSaveSwitchState)
         self.optionsLayout.addWidget(self.replaceFilesSwitch)
-
-        self.checkSaveSwitch = StrikableCheckBox("check save file for existing files", self)
-        self.checkSaveSwitch.setChecked(True)
-        self.optionsLayout.addWidget(self.checkSaveSwitch)
 
         self.tagExistingSwitch = StrikableCheckBox("tag existing files", self)
         self.optionsLayout.addWidget(self.tagExistingSwitch)
@@ -359,10 +352,6 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         if darkMode: self.setStyleSheet(YTAudioFetcherGUI.darkMode)
         else: self.setStyleSheet(YTAudioFetcherGUI.lightMode)
     
-    def setCheckSaveSwitchState(self):
-        replaceFiles = self.replaceFilesSwitch.isChecked()
-        self.checkSaveSwitch.setDisabled(replaceFiles)
-
     def initOperationsCheckList(self):    
         # Operations layout
         self.operationsLayout = QtWidgets.QHBoxLayout()
@@ -429,7 +418,6 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         # The disabling in the GUI is essentially just for the user to see what is and isn't getting used in the script
         replacingFiles = self.replaceFilesSwitch.isChecked()
         tagExisting = self.tagExistingSwitch.isChecked()
-        checkSave = self.checkSaveSwitch.isChecked()
         overwriteSave = self.overwriteSavesSwitch.isChecked()
         verboseSkipList = self.verboseSkipListSwitch.isChecked()
 
@@ -441,7 +429,6 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
             "tagging": tagging,
             "saving": saving,
             "replacingFiles": replacingFiles,
-            "checkSave": checkSave,
             "tagExisting": tagExisting,
             "changeableTags": changeableTags,
             "overwriteSave": overwriteSave,

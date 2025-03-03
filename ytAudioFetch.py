@@ -9,12 +9,12 @@ init(autoreset=True)
 HOME_DIR = os.path.expanduser("~")
 RETRY_LIMIT = 3
 FILENAME_FORMAT = "YTAF-%(id)s-%(title)s.%(ext)s"
-ID3_ALIASES = {
-    "url": ("WOAS", WOAS),
-    "title": ("TIT2", TIT2),
-    "artist": ("TPE1", TPE1),
-    "uploader": ("TPUB", TPUB),
-    "thumbnail": ("APIC", APIC)
+ID3_ALIASES = { # official ID3 tagnames: https://exiftool.org/TagNames/ID3.html
+    "url": ("WOAS", WOAS), # SourceURL
+    "title": ("TIT2", TIT2), # Title
+    "artist": ("TPE1", TPE1), # Artist
+    "uploader": ("TPUB", TPUB), # Publisher
+    "thumbnail": ("APIC", APIC) # Picture
 }
 def hook(d: Dict[str, Any]) -> None:
     if d["status"] == "finished": print("  [dl hook] Finished downloading info of", d['info_dict']['title'], end="")
@@ -51,7 +51,6 @@ def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
             tagging (bool, optional): Whether to tag the audio file. Defaults to True.
             saving (bool, optional): Whether to save the tag data to a JSON file. Defaults to True.
             replacingFiles (bool, optional): Whether to replace the audio file if it already exists. Defaults to False.
-            checkSave (bool, optional): Whether to reference the save file to check if the audio file already exists. Defaults to True.
             tagExisting (bool, optional): Whether to tag existing files. Defaults to False
             changeableTags (List[str], optional): A list of tags that can be changed. Defaults to None which means all tags can be changed.
             overwriteSave (bool, optional): Whether to overwrite the save file if it already exists. Defaults to False.
@@ -62,9 +61,8 @@ def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
     # Validate and prepare input arguments
     params = validateAndPrepareArgsURL(arguments)
     if params is None: return []
-    ( ytURL, outputDir, saveFilePath, downloading, tagging,
-      saving, replacingFiles, checkSave, tagExisting,
-      changeableTags, overwriteSave, verboseSkipList ) = params
+    ( ytURL, outputDir, saveFilePath, downloading, tagging, saving, replacingFiles,
+      tagExisting, changeableTags, overwriteSave, verboseSkipList ) = params
 
     skipList = []
     
@@ -83,9 +81,9 @@ def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
     for i, entry in enumerate(info.get("entries", []), start=1): # Process each entry in the info
         print(Fore.BLUE + f"Video {i} of {len(info.get('entries', []))}")
         processEntryURL(
-            entry, ydlOpts, saveData, saveFilePath, downloading,
-            tagging, saving, replacingFiles, checkSave, tagExisting,
-            overwriteSave, changeableTags, skipList, verboseSkipList
+            entry, ydlOpts, saveData, saveFilePath, downloading, tagging,
+            saving, replacingFiles, tagExisting, overwriteSave,
+            changeableTags, skipList, verboseSkipList
         )
         print("\n")
     else: print(Fore.BLUE + "Processing of all entries complete")
@@ -133,7 +131,7 @@ def ytafJSON(arguments: Dict[str, Any]) -> List[Tuple[str, str]]:
     
     return skipList
 
-def validateAndPrepareArgsURL(arguments: Dict) -> Tuple[str, str, str, bool, bool, bool, bool, bool, bool, List[str], bool, bool]:
+def validateAndPrepareArgsURL(arguments: Dict) -> Tuple[str, str, str, bool, bool, bool, bool, bool, List[str], bool, bool]:
     """Validates and prepares the input arguments for the ytafURL function."""
     ytURL = arguments.get("ytURL")
     outputDir = arguments.get("outputDir")
@@ -154,18 +152,17 @@ def validateAndPrepareArgsURL(arguments: Dict) -> Tuple[str, str, str, bool, boo
 
     saveFilePath = os.path.expanduser( arguments.get("saveFilePath", os.path.join(HOME_DIR, ".ytAudioFetchSave.json")))
     replacingFiles = arguments.get("replacingFiles", False)
-    tagExisting = arguments.get("replacingFiles", False)
-    checkSave = arguments.get("checkSave", True)
+    tagExisting = arguments.get("tagExisting", False)
     overwriteSave = arguments.get("overwriteSave", False)
     verboseSkipList = arguments.get("verboseSkipList", False)
     outputDir = os.path.expanduser(outputDir)
     os.makedirs(outputDir, exist_ok=True)
     
-    return ytURL, outputDir, saveFilePath, downloading, tagging, saving, replacingFiles, checkSave, tagExisting, changeableTags, overwriteSave, verboseSkipList
+    return ytURL, outputDir, saveFilePath, downloading, tagging, saving, replacingFiles, tagExisting, changeableTags, overwriteSave, verboseSkipList
 
-def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Dict[str, Dict[str, str]], saveFilePath: str,
-                    downloading: bool, tagging: bool, saving: bool, replacingFiles: bool, checkSave: bool, tagExisting: bool,
-                    overwriteSave: bool, changeableTags: List[str], skipList: List[Tuple[str, str]], verboseSkipList: bool) -> None:
+def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Dict[str, Dict[str, str]], downloading: bool,
+                    tagging: bool, saving: bool, replacingFiles: bool, tagExisting: bool, overwriteSave: bool,
+                    changeableTags: List[str], skipList: List[Tuple[str, str]], verboseSkipList: bool) -> None:
     """
     Processes a single entry in a playlist.
     
@@ -173,12 +170,10 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
         entry (Dict[str, Any]): A dictionary containing the info of the YouTube video.
         ydlOpts (Dict[str, Any]): A dictionary of options for the yt-dlp YoutubeDL object.
         saveData (Dict[str, Dict[str, str]]): A dictionary containing existing save data.
-        saveFilePath (str): The path to the save file.
         downloading (bool): Whether to download the audio file.
         tagging (bool): Whether to tag the audio file.
         saving (bool): Whether to save the tag data to a JSON file.
         replacingFiles (bool): Whether to replace the audio file if it already exists.
-        checkSave (bool): Whether to reference the save file to check if the audio file already exists.
         tagExisting (bool): Whether to tag existing files.
         overwriteSave (bool): Whether to overwrite the save file if it already exists.
         changeableTags (List[str]): A list of tags that can be changed.
@@ -196,7 +191,7 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
     audioFilePath = getActualFileName(entry, ydlOpts)
     audioFileExists = os.path.exists(audioFilePath)
     audioSaveExists = audioFilePath in saveData
-    shouldDownload = downloading and (replacingFiles or not (checkSave and audioSaveExists) or not audioFileExists)
+    shouldDownload = downloading and (replacingFiles or not audioFileExists)
     shouldTag = tagging and changeableTags and ((tagExisting and audioFileExists) or shouldDownload)
     shouldSave = saving and changeableTags and (overwriteSave or not audioSaveExists)
 
@@ -629,8 +624,6 @@ if __name__ == "__main__": # User inputs
             "overwriteSave": boolInput("Overwrite data in save file? (y/n): ") if saving else False,
             "verboseSkipList": boolInput("Verbose skip list (show all operations skipped)? (y/n): ")
         }
-
-        arguments["checkSave"] = boolInput("Check save file for existing files? (y/n): ") if mode == "1" and downloading and not arguments["replacingFiles"] else False,
 
         print("\n\n")
         if mode == "0": skipList = ytafURL(arguments)
