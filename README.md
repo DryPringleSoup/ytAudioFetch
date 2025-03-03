@@ -1,4 +1,4 @@
-# ytAudioFetch
+# ytAudioFetch <img src="ytaf.svg" width="100" height="100" align="right">
 Light [yt-dlp](https://github.com/yt-dlp/yt-dlp) gui that fetches audio from playlists/videos as .mp3's and tags them with artists, titles, and cover art/thumbnail
 
 ## Installation
