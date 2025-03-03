@@ -56,16 +56,16 @@ Copy and paste
 
 1. **URL Mode** - This is the main mode, it allows to download any playlist's or video's audio
 2. **JSON Mode** *(More info below next image)* - Using your own custom JSON file, you can put it your own tag data and have all the specified files be tagged
-3. **Youtube URL to extract from** - playlist or single videos (this includeds shorts) are valid
+3. **Youtube URL to extract from** - playlist or single videos (this includes shorts) are valid
 4. **Directory/Folder to save to** - you can either manually type it or press the folder icon and browse to find it
 5. **Advanced options toggle** - Hides and unhides advanced options
 6. **Dark Mode activator** - changes the theme to dark mode (see last image for previews)
-7. **Vebose skip list** - normally when the program is done processing it shows alist of any videos/json entries whose downloads were skipped; turning on this will show all operations that were skipped like skipped tags and skipped saves. This often makes the list much longer
+7. **Verbose skip list** - normally when the program is done processing it shows a list of any videos/json entries whose downloads were skipped; turning on this will show all operations that were skipped like skipped tags and skipped saves. This often makes the list much longer
 8. **Download operation** - whether or not to download the audio file
 9. **Tag operation** - whether or not to tag the audio file with tags checked in 13-17
 10. **Save operation** - whether or not to save the tag data to a JSON file
 11. **Replacing files** - replace existing files with the same name, works by checking if the file already exists that also looks like "YTAF-[id]-[title].mp3" so, if you change the file name, the original will not be replaced
-12. **Tag existing** - uses same check as 11 to determine existing files. When turned off, skips tagging if the file already exists
+12. **Tag existing** - uses the same check as 11 to determine existing files. When turned off, skips tagging if the file already exists
 13. **Youtube url tag** - gets saved to the WOAS (sourceURL) ID3 tag
 14. **Title tag** - gets saved to the TIT2 (title) ID3 tag
 15. **Artist tag** - gets saved to the TPE1 (artist) ID3 tag
