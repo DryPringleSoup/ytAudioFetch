@@ -81,7 +81,7 @@ def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
     for i, entry in enumerate(info.get("entries", []), start=1): # Process each entry in the info
         print(Fore.BLUE + f"Video {i} of {len(info.get('entries', []))}")
         processEntryURL(
-            entry, ydlOpts, saveData, downloading, tagging,
+            entry, ydlOpts, saveData, saveFilePath, downloading, tagging,
             saving, replacingFiles, tagExisting, overwriteSave,
             changeableTags, skipList, verboseSkipList
         )
