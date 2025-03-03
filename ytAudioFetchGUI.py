@@ -1,61 +1,8 @@
 import sys, io, re, os
 from functools import partial
 from PyQt5 import QtWidgets, QtCore, QtGui
+from colorama import Fore
 from ytAudioFetch import ytafURL, ytafJSON, ID3_ALIASES, HOME_DIR
-
-class OutputCapture(io.StringIO):
-    def __init__(self, label1, label2):
-        super().__init__()
-        self.label1 = label1
-        self.label2 = label2
-        self.outputBuffer = ""  # Initialize the output buffer
-        self.outputClear = False
-        self.original_stdout = sys.stdout
-
-    def write(self, message):
-        # Store the newest message in the buffer
-        # if there's a newline, clear the buffer
-        if self.outputClear:
-            if message.strip():
-                self.outputBuffer = message
-                self.outputClear = False
-        else: self.outputBuffer += message
-        if "\n" in message: self.outputClear = True
-        if len(self.outputBuffer) >= 50: self.outputBuffer = self.outputBuffer[:50]+"..."
-        
-        # Update status label with video index
-        # regex checks for "['Video' or 'JSON entry'] [num] of [num]"
-        bufferMatch = re.search(r"(?:Video|JSON entry) \d+ of \d+$", self.outputBuffer.strip())
-        if bufferMatch: self.label1.setText("Downloading: " + bufferMatch.group(0))
-
-        #Write to console
-        self.original_stdout.write(message)
-
-        # Update the label with the new message
-        self.label2.setText("Output:\n"+self.outputBuffer)
-
-    def flush(self): pass  # Required for compatibility with some interfaces
-
-class Worker(QtCore.QThread):
-    outputSignal = QtCore.pyqtSignal(str)
-
-    def __init__(self, mode, arguments):
-        super().__init__()
-        self.mode = mode
-        self.arguements = arguments
-
-    def run(self):       
-        try:
-            if self.mode == 0: skipList = ytafURL(self.arguements)
-            elif self.mode == 1: skipList = ytafJSON(self.arguements)
-            else: raise ValueError(f"Invalid mode: {self.mode}")
-
-            if skipList:
-                skipString = ''.join( [f"\n\t{thing}: {error}" for thing, error in skipList] )
-                skiptype = ['videos', 'entries'][self.mode]
-                self.outputSignal.emit(f"The following {skiptype} had to be skipped:{skipString}")
-            else: self.outputSignal.emit("Process completed without failure.")
-        except Exception as e: self.outputSignal.emit(f"An error occurred: {e}")
 
 def strikeText(self, event): # QtLineEdit and QtCheckBox don't use strike through so this is a workaround
     super(type(self), self).paintEvent(event)
@@ -69,6 +16,7 @@ def strikeText(self, event): # QtLineEdit and QtCheckBox don't use strike throug
         y = self.rect().center().y()
         painter.drawLine(text_rect.left(), y, text_rect.right()+20, y)
 
+# Custom Widgets
 class StrikableLineEdit(QtWidgets.QLineEdit): paintEvent = strikeText
 class StrikableCheckBox(QtWidgets.QCheckBox): paintEvent = strikeText
 
@@ -119,6 +67,70 @@ class FileBrowser(QtWidgets.QWidget):
     def setPlaceholderText(self, placeholder):
         self.folderInput.setPlaceholderText(placeholder)
 
+# Processing
+class OutputCapture(QtCore.QObject):
+    textUpdated = QtCore.pyqtSignal(str)
+    
+    def __init__(self):
+        super().__init__()
+        self.outputBuffer = ""  # Initialize the output buffer
+        self.outputClear = False
+        self.original_stdout = sys.stdout
+
+    def write(self, message):
+        # Store the newest message in the buffer
+        # if there's a newline, clear the buffer
+        if self.outputClear:
+            if message.strip():
+                self.outputBuffer = message
+                self.outputClear = False
+        else: self.outputBuffer += message
+        if "\n" in message: self.outputClear = True
+        if len(self.outputBuffer) >= 50: self.outputBuffer = self.outputBuffer[:50]+"..."
+
+        # Remove ANSI color codes
+        for color in [Fore.RED, Fore.GREEN, Fore.BLUE, Fore.MAGENTA, Fore.YELLOW]: self.outputBuffer = self.outputBuffer.replace(color, "")
+
+        #Write to console
+        self.original_stdout.write(message)
+
+        # Update the label with the new message
+        self.textUpdated.emit(message)
+
+    def flush(self): pass  # Required for compatibility with some interfaces
+
+class Worker(QtCore.QThread):
+    outputSignal = QtCore.pyqtSignal(str)
+
+    def __init__(self, mode, arguments):
+        super().__init__()
+        self.mode = mode
+        self.arguements = arguments
+
+class Worker(QtCore.QThread):
+    outputSignal = QtCore.pyqtSignal(str)
+
+    def __init__(self, mode, arguments):
+        super().__init__()
+        self.mode = mode
+        self.arguements = arguments
+
+    def run(self):
+        try:
+            if self.mode == 0: skipList = ytafURL(self.arguements)
+            elif self.mode == 1: skipList = ytafJSON(self.arguements)
+            else: raise ValueError(f"Invalid mode: {self.mode}")
+
+            if skipList:
+                skipString = ''.join([f"\n\t{thing}: {error}" for thing, error in skipList])
+                skiptype = ['videos', 'entries'][self.mode]
+                self.outputSignal.emit(f"The following {skiptype} had to be skipped:{skipString}")
+            else: self.outputSignal.emit("Process completed without failure.")
+        except Exception as e: self.outputSignal.emit(f"An error occurred: {e}")
+
+        self.finished.emit()
+
+#GUI
 class YTAudioFetcherGUI(QtWidgets.QWidget):
     baseStyleSheet = """
     QWidget { font-size: 9pt; }
@@ -127,15 +139,20 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         border: none;
         color: gray;
     }
+    QScrollArea { border: none; }
+    QTextEdit {
+        background-color: transparent;
+        border: None
+    }
     """
     lightMode = baseStyleSheet
     darkMode = baseStyleSheet[:15]+"background-color: #1A082A; color: #FFFFFF;"+baseStyleSheet[15:] # puts the style in after "\nQwidget { "
     scriptModes = 2
+    isProcessing = False
 
     def __init__(self):
         self.scriptMode = 0
         self.isDarkMode = False
-        self.isProcessing = False
         super().__init__()
         self.initUI() # Initialize all the widgets in the UI
         self.setScriptMode(self.scriptMode) # Properly sets the look of the mode
@@ -189,8 +206,15 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
 
         self.scriptModeLayout.addStretch() # stops the widgets from being spread across the window by pushing them to the top or bottom
         
-        self.statusLabel = QtWidgets.QLabel(self)
-        self.statusLabel.setWordWrap(True)
+        self.statusLabel = QtWidgets.QTextEdit(self)
+        self.statusLabel.setReadOnly(True)  # Make the text read-only
+        self.statusLabel.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
+        self.statusLabel.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
+        self.statusLabel.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        self.statusLabel.setLineWrapMode(QtWidgets.QTextEdit.NoWrap)
+        self.statusLabel.setFixedHeight(100)
+        self.statusLabel.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
+
         self.scriptModeLayout.addWidget(self.statusLabel)
 
         self.outputLabel = QtWidgets.QLabel("Output:", self)
@@ -201,7 +225,8 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.layout.addWidget(self.scriptModeGroup)
 
         # Redirect stdout to capture print statements
-        self.outputCapture = OutputCapture(self.statusLabel,self.outputLabel)
+        self.outputCapture = OutputCapture()
+        self.outputCapture.textUpdated.connect(self.outputConsole2Labels, QtCore.Qt.QueuedConnection)
         sys.stdout = self.outputCapture
 
         self.setLayout(self.layout)
@@ -215,6 +240,8 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
             self.urlInput,
             self.outputDirInput,
             self.operationSwitchsDict["save tags"],
+            self.checkSaveSwitch,
+            self.tagExistingSwitch,
             self.overwriteSavesSwitch,
             self.saveFilePathInputLabel
         ]
@@ -254,6 +281,8 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         extracting = (self.scriptMode == 0 and (tagging or saving)) or (self.scriptMode == 1 and tagging)
 
         self.replaceFilesSwitch.setEnabled(downloading)
+        self.checkSaveSwitch.setEnabled(downloading)
+        self.tagExistingSwitch.setEnabled(tagging)
         self.tagSelectionLabel.setEnabled(extracting)
         self.tagsGroup.setEnabled(extracting)
         self.overwriteSavesSwitch.setEnabled(saving)
@@ -263,7 +292,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         if not (downloading or extracting):
             self.startButton.setDisabled(True)
             self.statusLabel.setText("At least one operation must be selected")
-        elif not self.isProcessing:
+        elif not YTAudioFetcherGUI.isProcessing:
             self.startButton.setDisabled(False)
             self.statusLabel.setText("")
     
@@ -286,11 +315,21 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.darkModeToggle.clicked.connect(self.toggleThemeMode)
         self.optionsLayout.addWidget(self.darkModeToggle)
 
+        self.verboseSkipListSwitch = StrikableCheckBox("show ALL operations that were skipped", self)
+        self.optionsLayout.addWidget(self.verboseSkipListSwitch)
+
         self.initOperationsCheckList() # checks for downloading, tagging, and saving
 
         self.replaceFilesSwitch = StrikableCheckBox("replace existing files", self)
-        self.replaceFilesSwitch.setChecked(True)
+        self.replaceFilesSwitch.stateChanged.connect(self.setCheckSaveSwitchState)
         self.optionsLayout.addWidget(self.replaceFilesSwitch)
+
+        self.checkSaveSwitch = StrikableCheckBox("check save file for existing files", self)
+        self.checkSaveSwitch.setChecked(True)
+        self.optionsLayout.addWidget(self.checkSaveSwitch)
+
+        self.tagExistingSwitch = StrikableCheckBox("tag existing files", self)
+        self.optionsLayout.addWidget(self.tagExistingSwitch)
 
         self.tagSelectionLabel = QtWidgets.QLabel("Select tags to extract:", self)
         self.optionsLayout.addWidget(self.tagSelectionLabel)
@@ -298,7 +337,6 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.initTagsCheckList() # lists of ID3 tags that are supported to be tagged or saved
 
         self.overwriteSavesSwitch = StrikableCheckBox("Overwrite data in save file", self)
-        self.overwriteSavesSwitch.setChecked(True)
         self.optionsLayout.addWidget(self.overwriteSavesSwitch)
 
         self.saveFilePathInputLabel = QtWidgets.QLabel("File to save to:", self)
@@ -326,6 +364,10 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         if darkMode: self.setStyleSheet(YTAudioFetcherGUI.darkMode)
         else: self.setStyleSheet(YTAudioFetcherGUI.lightMode)
     
+    def setCheckSaveSwitchState(self):
+        replaceFiles = self.replaceFilesSwitch.isChecked()
+        self.checkSaveSwitch.setDisabled(replaceFiles)
+
     def initOperationsCheckList(self):    
         # Operations layout
         self.operationsLayout = QtWidgets.QHBoxLayout()
@@ -361,7 +403,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         #Input validation
         url = self.urlInput.text()
         outputDir = self.outputDirInput.getPath()
-        saveFilePath = self.saveFilePathInput.getPath()
+        saveFilePath = self.saveFilePathInput.getPath() if self.saveFilePathInput.isEnabled() else ""
 
         if self.scriptMode == 0 and not (url and outputDir):
             self.statusLabel.setText("Please fill in all fields.")
@@ -373,18 +415,28 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         
         downloading = self.operationSwitchsDict["download audio"].isChecked()
         tagging = self.operationSwitchsDict["tag audio"].isChecked()
-        saving = self.operationSwitchsDict["save tags"].isChecked()
+        saving = self.operationSwitchsDict["save tags"].isChecked() if self.scriptMode == 0 else False
         extracting = (self.scriptMode == 0 and (tagging or saving)) or (self.scriptMode == 1 and tagging)
 
         if not (downloading or extracting): # technically this is redundant due to self.updateOptions but just in case
             self.statusLabel.setText("At least one operation must be selected")
             return
 
-        changeableTags = [ tag for tag in ID3_ALIASES if self.tagSwitchsDict[tag].isChecked() ]
+        # enabled check is also redundant here because it is only enabled if you aren't extracting and so not
+        # referencing the changeableTags list. It's more or less just to skip the check if you aren't extracting
+        changeableTags = [ tag for tag in ID3_ALIASES if self.tagSwitchsDict[tag].isChecked() ] if self.tagsGroup.isEnabled() else []
 
         if extracting and not changeableTags:
             self.statusLabel.setText("Please select at least one tag to extract.")
             return
+
+        # Not checking for enabled here because the script is already not gonna use these if they aren't enabled
+        # The disabling in the GUI is essentially just for the user to see what is and isn't getting used in the script
+        replacingFiles = self.replaceFilesSwitch.isChecked()
+        tagExisting = self.tagExistingSwitch.isChecked()
+        checkSave = self.checkSaveSwitch.isChecked()
+        overwriteSave = self.overwriteSavesSwitch.isChecked()
+        verboseSkipList = self.verboseSkipListSwitch.isChecked()
 
         arguDict = {
             "ytURL": url,
@@ -393,30 +445,40 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
             "downloading": downloading,
             "tagging": tagging,
             "saving": saving,
-            "replacingFiles": self.replaceFilesSwitch.isChecked(),
+            "replacingFiles": replacingFiles,
+            "checkSave": checkSave,
+            "tagExisting": tagExisting,
             "changeableTags": changeableTags,
-            "overwriteSave": self.overwriteSavesSwitch.isChecked()
+            "overwriteSave": overwriteSave,
+            "verboseSkipList": verboseSkipList
         }
 
         print(*[f"{k}: {v}" for k, v in arguDict.items()], sep="\n")
 
         self.startButton.setDisabled(True)
-        self.isProcessing = True
+        YTAudioFetcherGUI.isProcessing = True
         self.statusLabel.setText("Processing...")
         QtWidgets.QApplication.processEvents() # used to force the GUI to update because updates happen every GUI event loop when this for loop blocks
 
         # Create a worker thread
-        self.worker = Worker(mode=self.scriptMode, arguments=arguDict)
-        self.worker.outputSignal.connect(self.updateLabel)
+        self.worker = Worker(self.scriptMode, arguDict)
+        self.worker.outputSignal.connect(self.statusLabel.setText, QtCore.Qt.QueuedConnection)
+        self.worker.finished.connect(self.renableStartButton)
         self.worker.start()
-
-        self.isProcessing = False
-        self.startButton.setDisabled(False)
     
-    def updateLabel(self, message=None):
-        self.statusLabel.setText(message)
-        #if message == "Audio download completed." or message == "JSON extraction completed.": renable the buttons
-        if re.match(r"(?:Audio download|JSON extraction) completed.$", message): self.enableStartButtons()
+    # Thread emit functions
+
+    def outputConsole2Labels(self, output):
+        # Update status label with video index
+        # regex checks for "['Video' or 'JSON entry'] [num] of [num]"
+        output = output.strip()
+        bufferMatch = re.search(r"(?:Video|JSON entry) \d+ of \d+$", output)
+        if bufferMatch: self.statusLabel.setText("Processing: " + bufferMatch.group(0))
+        else: self.outputLabel.setText("Output:\n"+output)
+
+    def renableStartButton(self):
+        self.startButton.setEnabled(True)
+        YTAudioFetcherGUI.isProcessing = False
 
 
 if __name__ == '__main__':

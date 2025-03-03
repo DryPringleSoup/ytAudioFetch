@@ -51,9 +51,11 @@ def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
             tagging (bool, optional): Whether to tag the audio file. Defaults to True.
             saving (bool, optional): Whether to save the tag data to a JSON file. Defaults to True.
             replacingFiles (bool, optional): Whether to replace the audio file if it already exists. Defaults to False.
+            checkSave (bool, optional): Whether to reference the save file to check if the audio file already exists. Defaults to True.
+            tagExisting (bool, optional): Whether to tag existing files. Defaults to False
             changeableTags (List[str], optional): A list of tags that can be changed. Defaults to None which means all tags can be changed.
             overwriteSave (bool, optional): Whether to overwrite the save file if it already exists. Defaults to False.
-    
+            verboseSkipList (bool, optional): Whether to print all operations that were skipped or just downloads. Defaults to False.
     Returns:
         List[Tuple[str, str]]: A list of tuples each containing the link to a skipped video/playlist and the reason for skipping.
     """
@@ -61,7 +63,8 @@ def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
     params = validateAndPrepareArgsURL(arguments)
     if params is None: return []
     ( ytURL, outputDir, saveFilePath, downloading, tagging,
-      saving, replacingFiles, changeableTags, overwriteSave ) = params
+      saving, replacingFiles, checkSave, tagExisting,
+      changeableTags, overwriteSave, verboseSkipList ) = params
 
     skipList = []
     
@@ -73,19 +76,24 @@ def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
     ydlOpts["outtmpl"] = os.path.join(outputDir, ydlOpts["outtmpl"])
     
     # Load save data
-    saveData = loadSaveData(saveFilePath)
+    if saving: saveData = loadSaveData(saveFilePath)
+    else: saveData = {}
     
     print()
     for i, entry in enumerate(info.get("entries", []), start=1): # Process each entry in the info
         print(Fore.BLUE + f"Video {i} of {len(info.get('entries', []))}")
         processEntryURL(
-            entry, ydlOpts, outputDir, saveData, saveFilePath,
-            downloading, tagging, saving, replacingFiles,
-            overwriteSave, changeableTags, skipList
+            entry, ydlOpts, saveData, saveFilePath, downloading,
+            tagging, saving, replacingFiles, checkSave, tagExisting,
+            overwriteSave, changeableTags, skipList, verboseSkipList
         )
         print("\n")
-    else: print(Fore.BLUE + "Processing of all entries complete", end="\n\n\n")
+    else: print(Fore.BLUE + "Processing of all entries complete")
     
+    if saving:
+        with open(saveFilePath, "w") as saveFile: json.dump(saveData, saveFile, indent=4)
+        print(Fore.GREEN + "All data has been properly saved to:", saveFilePath)
+
     return skipList
 
 def ytafJSON(arguments: Dict[str, Any]) -> List[Tuple[str, str]]:
@@ -97,11 +105,12 @@ def ytafJSON(arguments: Dict[str, Any]) -> List[Tuple[str, str]]:
             tagging (bool, optional): Whether to tag the audio files. Defaults to True.
             replacingFiles (bool, optional): Whether to replace the audio if it already exists. Defaults to False.
             changeableTags (List[str], optional): A list of tags that can be changed. Defaults to None which means all tags can be changed.
+            verboseSkipList (bool, optional): Whether to print all operations that were skipped or just downloads. Defaults to False.
     """
     # Validate and prepare input arguments
     params = validateAndPrepareArgsJSON(arguments)
     if params is None: return []
-    ( saveFilePath, downloading, tagging, replacingFiles, changeableTags ) = params
+    ( saveFilePath, downloading, tagging, replacingFiles, changeableTags, verboseSkipList ) = params
 
     # Load save data
     saveData = loadSaveData(saveFilePath)
@@ -116,15 +125,15 @@ def ytafJSON(arguments: Dict[str, Any]) -> List[Tuple[str, str]]:
         print(Fore.BLUE+f"JSON entry {i} of {entries}:", audioFilePath)
         print(*[ f"{key}: {value}" for key, value in data.items()], sep="\n")
         processEntryJSON(
-            audioFilePath, data, ydlVerbose, downloading,
-            tagging, replacingFiles, changeableTags, skipList
+            audioFilePath, data, ydlVerbose, downloading, tagging,
+            replacingFiles, changeableTags, skipList, verboseSkipList
         )
         print("\n")
-    else: print(Fore.BLUE + "Processing of all entries complete", end="\n\n\n")
+    else: print(Fore.BLUE + "Processing of all entries complete")
     
     return skipList
 
-def validateAndPrepareArgsURL(arguments: Dict) -> Tuple[str, str, str, bool, bool, bool, bool, List[str], bool]:
+def validateAndPrepareArgsURL(arguments: Dict) -> Tuple[str, str, str, bool, bool, bool, bool, bool, bool, List[str], bool, bool]:
     """Validates and prepares the input arguments for the ytafURL function."""
     ytURL = arguments.get("ytURL")
     outputDir = arguments.get("outputDir")
@@ -145,31 +154,36 @@ def validateAndPrepareArgsURL(arguments: Dict) -> Tuple[str, str, str, bool, boo
 
     saveFilePath = os.path.expanduser( arguments.get("saveFilePath", os.path.join(HOME_DIR, ".ytAudioFetchSave.json")))
     replacingFiles = arguments.get("replacingFiles", False)
+    tagExisting = arguments.get("replacingFiles", False)
+    checkSave = arguments.get("checkSave", True)
     overwriteSave = arguments.get("overwriteSave", False)
+    verboseSkipList = arguments.get("verboseSkipList", False)
     outputDir = os.path.expanduser(outputDir)
     os.makedirs(outputDir, exist_ok=True)
     
-    return ytURL, outputDir, saveFilePath, downloading, tagging, saving, replacingFiles, changeableTags, overwriteSave
+    return ytURL, outputDir, saveFilePath, downloading, tagging, saving, replacingFiles, checkSave, tagExisting, changeableTags, overwriteSave, verboseSkipList
 
-def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], outputDir: str, saveData: Dict[str, Dict[str, str]],
-                  saveFilePath: str, downloading: bool, tagging: bool, saving: bool, replacingFiles: bool,
-                  overwriteSave: bool, changeableTags: List[str], skipList: List[Tuple[str, str]]) -> None:
+def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Dict[str, Dict[str, str]], saveFilePath: str,
+                    downloading: bool, tagging: bool, saving: bool, replacingFiles: bool, checkSave: bool, tagExisting: bool,
+                    overwriteSave: bool, changeableTags: List[str], skipList: List[Tuple[str, str]], verboseSkipList: bool) -> None:
     """
     Processes a single entry in a playlist.
     
     Args:
         entry (Dict[str, Any]): A dictionary containing the info of the YouTube video.
         ydlOpts (Dict[str, Any]): A dictionary of options for the yt-dlp YoutubeDL object.
-        outputDir (str): The path to the output directory.
         saveData (Dict[str, Dict[str, str]]): A dictionary containing existing save data.
         saveFilePath (str): The path to the save file.
         downloading (bool): Whether to download the audio file.
         tagging (bool): Whether to tag the audio file.
         saving (bool): Whether to save the tag data to a JSON file.
         replacingFiles (bool): Whether to replace the audio file if it already exists.
+        checkSave (bool): Whether to reference the save file to check if the audio file already exists.
+        tagExisting (bool): Whether to tag existing files.
         overwriteSave (bool): Whether to overwrite the save file if it already exists.
         changeableTags (List[str]): A list of tags that can be changed.
         skipList (List[Tuple[str, str]]): A list of tuples where the first element is a YouTube URL and the second element is the reason why it was skipped.
+        verboseSkipList (bool): Whether to print all operations that were skipped or just downloads.
     """
 
     if entry.get("duration") is None: # Skip if video is unavailable
@@ -182,8 +196,8 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], outputDir: s
     audioFilePath = getActualFileName(entry, ydlOpts)
     audioFileExists = os.path.exists(audioFilePath)
     audioSaveExists = audioFilePath in saveData
-    shouldDownload = downloading and (replacingFiles or not audioSaveExists or not audioFileExists)
-    shouldTag = tagging and changeableTags and (audioFileExists or shouldDownload)
+    shouldDownload = downloading and (replacingFiles or not (checkSave and audioSaveExists) or not audioFileExists)
+    shouldTag = tagging and changeableTags and ((tagExisting and audioFileExists) or shouldDownload)
     shouldSave = saving and changeableTags and (overwriteSave or not audioSaveExists)
 
     if shouldDownload or ((shouldTag or shouldSave) and "thumbnail" in changeableTags):
@@ -207,14 +221,20 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], outputDir: s
                     break
                 except yt_dlp.utils.DownloadError as e:
                     extractionError = e
-                    if i == 0 and "confirm your age" in str(extractionError):
-                        addToSkipList(skipList, entry["url"], extractionError)
-                        entry["thumbnail"] = entry["thumbnails"][-1]["url"]
-                        break
+
+                    if i == 0:
+
+                        if not isConnectionError(extractionError): # if its not a connection error, don't retry
+                            # age restricted videos still have a thumbnail, thoughnot the full res one
+                            if "confirm your age" in str(extractionError): entry["thumbnail"] = entry["thumbnails"][-1]["url"]
+                            i = RETRY_LIMIT-1
+                            break
+                            
                     else:
                         print(Fore.RED + f"Error {'downloading' if shouldDownload else 'extracting'}: {extractionError}")
                         if i < RETRY_LIMIT - 1: print(Fore.YELLOW + "Retrying...")
-            else:
+            
+            if i == RETRY_LIMIT-1:
                 print(Fore.RED + f"Failed to {'download' if shouldDownload else 'extract information for'} {entry['url']}")
                 addToSkipList(skipList, entry["url"], extractionError)
                 return
@@ -230,17 +250,20 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], outputDir: s
         print(Fore.GREEN + "Adding tags to:", audioFilePath)
         result, wasTagged = addID3Tags(audioFilePath, metadata)
         if wasTagged: print(Fore.GREEN + audioFilePath + " has been fully downloaded and tagged")
-        else: addToSkipList(skipList, entry["url"], result)
+        elif verboseSkipList: addToSkipList(skipList, entry["url"], result)
     
     if shouldSave:
         print(Fore.GREEN + ("Overwriting save" if audioSaveExists else "Saving initial") + " data...")
         for key, value in metadata.items(): print( key.capitalize()+": "+value )
-        updateSaveData(audioFilePath, metadata, saveData, saveFilePath, overwriteSave)
-    elif not overwriteSave and audioSaveExists:
+        
+        if audioFilePath in saveData:
+            if overwriteSave: saveData[audioFilePath].update(metadata)
+        else: saveData[audioFilePath] = metadata
+    elif not overwriteSave and audioSaveExists:  
         print(Fore.YELLOW + "Cannot overwrite existing save data, skipping...")
-        addToSkipList(skipList, entry["url"], "Skipped Saving. Save data already exists when save overwrite is disabled.")
+        if verboseSkipList: addToSkipList(skipList, entry["url"], "Skipped Saving. Save data already exists when save overwrite is disabled.")
 
-def validateAndPrepareArgsJSON(arguments: Dict) -> Tuple[str, bool, bool, bool, List[str]]:
+def validateAndPrepareArgsJSON(arguments: Dict) -> Tuple[str, bool, bool, bool, List[str], bool]:
     """Validates and prepares the input arguments for the ytafJSON function."""
     saveFilePath = arguments.get("saveFilePath")
     if not saveFilePath: raise ValueError("saveFilePath is required is argument dictionary")
@@ -258,11 +281,12 @@ def validateAndPrepareArgsJSON(arguments: Dict) -> Tuple[str, bool, bool, bool, 
 
     saveFilePath = os.path.expanduser(saveFilePath)
     replacingFiles = arguments.get("replacingFiles", False)
+    verboseSkipList = arguments.get("verboseSkipList", False)
     
-    return saveFilePath, downloading, tagging, replacingFiles, changeableTags
+    return saveFilePath, downloading, tagging, replacingFiles, changeableTags, verboseSkipList
 
-def processEntryJSON(audioFilePath: str, data: Dict[str, Dict[str, str]], ydlOpts: Dict[str, Any], downloading: bool,
-                    tagging: bool, replacingFiles: bool, changeableTags: List[str], skipList: List[Tuple[str, str]]) -> None:
+def processEntryJSON(audioFilePath: str, data: Dict[str, Dict[str, str]], ydlOpts: Dict[str, Any], downloading: bool, tagging: bool,
+                     replacingFiles: bool, changeableTags: List[str], skipList: List[Tuple[str, str]], verboseSkipList: bool) -> None:
     """
     Processes a single entry from a JSON file. More or less just processEntryURL but with no saving functionality
     since it's already extracting from a JSON file.
@@ -276,6 +300,7 @@ def processEntryJSON(audioFilePath: str, data: Dict[str, Dict[str, str]], ydlOpt
         replacingFiles (bool): Whether to replace existing audio files.
         changeableTags (List[str]): The list of tags that can be changed.
         skipList (List[Tuple[str, str]]): The list of skipped entries.
+        verboseSkipList (bool): Whether to print all operations that were skipped or just downloads.
     """
     if mimetypes.guess_type(audioFilePath)[0] != "audio/mpeg":
         print(Fore.RED+"Warning!", audioFilePath, "is not an MP3, skipping...")
@@ -299,7 +324,7 @@ def processEntryJSON(audioFilePath: str, data: Dict[str, Dict[str, str]], ydlOpt
                     except yt_dlp.utils.DownloadError as e:
                         extractionError = e
                         # Check for non-connection errors on first try
-                        if i == 0 and not any(phrase in str(extractionError) for phrase in ["Failed to resolve", "Failed to extract"]):
+                        if i == 0 and not isConnectionError(extractionError):
                             addToSkipList(skipList, data["url"], extractionError)
                             skipList[-1] = (audioFilePath, f"({skipList[-1][0]}) {skipList[-1][1]}")
                             break
@@ -322,7 +347,12 @@ def processEntryJSON(audioFilePath: str, data: Dict[str, Dict[str, str]], ydlOpt
         metadata = { key: data.get(key) for key in changeableTags if data.get(key) }
         result, wasTagged = addID3Tags(audioFilePath, metadata)
         if wasTagged: print(Fore.GREEN + audioFilePath + " has been fully downloaded and tagged")
-        else: addToSkipList(skipList, audioFilePath, result)
+        elif verboseSkipList: addToSkipList(skipList, audioFilePath, result)
+
+def isConnectionError(error: yt_dlp.utils.DownloadError) -> bool:
+    """Checks if the given error is a connection error."""
+    error = str(error)
+    return any(phrase in error for phrase in ["Failed to resolve", "Failed to extract"])
 
 def getActualFileName(infoDict: Dict[str, Any], ydlOpts: Dict[str, Any]) -> str:
     """Returns the actual file name of a video from its info dictionary."""
@@ -336,6 +366,7 @@ def addToSkipList(skipList: List[Tuple[str, str]], ytURL: str, error: Union[yt_d
             ("confirm your age", "Age Restriction"),
             ("Private video", "Private video"),
             ("Bad Request", "Bad Playlist URL"),
+            ("is not a valid URL", "Invalid URL"),
             ("Failed to resolve", "Failed connection to YouTube"),
             ("Failed to extract", "Failed to extract any player response; possible connection issue")
         ]
@@ -343,7 +374,7 @@ def addToSkipList(skipList: List[Tuple[str, str]], ytURL: str, error: Union[yt_d
             if phrase in error:
                 error = reason
                 break
-        if error == "Video unavailable": error += ". Link likely points to non-existent video."
+        if error == "Video unavailable": error += ". Link likely points to non-existent or unlisted video."
         if error == "Forbidden": error += ". Check your internet and/or try to download again."
     skipList.append((ytURL, error))
 
@@ -371,7 +402,7 @@ def extractBasicInfo(ytURL: str, outputDir: str, skipList: List[Tuple[str, str]]
             except yt_dlp.utils.DownloadError as e:
                 extractionError = e
                 # Check for non-connection errors on first try
-                if i == 0 and not any(phrase in str(extractionError) for phrase in ["Failed to resolve", "Failed to extract"]):
+                if i == 0 and not isConnectionError(extractionError):
                     addToSkipList(skipList, ytURL, extractionError)
                     info = {"entries": []}
                     break
@@ -384,11 +415,14 @@ def extractBasicInfo(ytURL: str, outputDir: str, skipList: List[Tuple[str, str]]
             addToSkipList(skipList, ytURL, extractionError)
             info = {"entries": []}
     
-    # Single videos have the basename: "watch" 
-    if not info.get("webpage_url_basename") == "playlist" and not skipList:
+    # playlists have the basename: "playlist" 
+    if info.get("webpage_url_basename") == "watch" and not skipList:
         # Normalize single video to a playlist-like structure
         info["url"] = info["webpage_url"]
         info = {"entries": [info]}
+    
+    # For Debugging: outputs all entry information in readable format
+    # for entry in info.get("entries", []): print("\n".join(f"{key}: {value}" for key, value in entry.items()),end="\n\n")
     return info
 
 def loadSaveData(saveFilePath: str) -> Dict[str, Dict[str, str]]:
@@ -399,14 +433,6 @@ def loadSaveData(saveFilePath: str) -> Dict[str, Dict[str, str]]:
     except:
         print("Error loading JSON file. Initializing with empty data.")
         return {}
-
-def updateSaveData(audioFilePath: str, metadata: Dict[str, str], saveData: Dict, saveFilePath: str, overwriteSave: bool) -> None:
-    """Updates save data with new metadata for the given audio file path."""
-    if audioFilePath in saveData:
-        if overwriteSave: saveData[audioFilePath].update(metadata)
-    else: saveData[audioFilePath] = metadata
-    with open(saveFilePath, "w") as saveFile: json.dump(saveData, saveFile, indent=4)
-    print(Fore.GREEN + "All data has been properly saved to:", saveFilePath)
 
 def changeFileExt(filename: str, newExt: str) -> str:
     """Changes the file extension of the given filename."""
@@ -589,7 +615,7 @@ if __name__ == "__main__": # User inputs
         if not (downloading or changeableTags): # Since this passed previous check, if downloading is false either tagging or saving must be true
             print(Fore.YELLOW + "Tagging or saving requires at least one tag to be changeable.")
             break
-
+        
         arguments = { # There were too many arguments so I'm stuff them all in a dictionary
             "ytURL": strInput("Enter the YouTube playlist/video URL: ") if mode == "0" else None,
             "outputDir": strInput("Enter the directory to save the MP3 files: ") if mode == "0" else None,
@@ -598,15 +624,20 @@ if __name__ == "__main__": # User inputs
             "tagging": tagging,
             "saving": saving,
             "replacingFiles": boolInput("Replace existing files? (y/n): ") if downloading else False,
+            "tagExisting": boolInput("tag existing files? (y/n): ") if mode == "1" and tagging else False,
             "changeableTags": changeableTags,
-            "overwriteSave": boolInput("Overwrite data in save file? (y/n): ") if saving else False
+            "overwriteSave": boolInput("Overwrite data in save file? (y/n): ") if saving else False,
+            "verboseSkipList": boolInput("Verbose skip list (show all operations skipped)? (y/n): ")
         }
+
+        arguments["checkSave"]: bool = boolInput("Check save file for existing files? (y/n): ") if mode == "1" and downloading and not arguments["replacingFiles"] else False,
 
         print("\n\n")
         if mode == "0": skipList = ytafURL(arguments)
         elif mode == "1": skipList = ytafJSON(arguments)
 
         if skipList: # Report skipped entries
+            print()
             print(Fore.RED + f"The following {['videos', 'entries'][int(mode)]} had to be skipped:")
             for thing, error in skipList: print(f"\t{thing}: {error}")
         

@@ -2,8 +2,6 @@
 Light [yt-dlp](https://github.com/yt-dlp/yt-dlp) gui that fetches audio from playlists/videos as .mp3's and tags them with artists, titles, and cover art/thumbnail
 
 ## Installation
-### Installer
-If you're on linux just download the ytafLinuxInstaller and run it
 ### Command Line
 1. Clone repository:
    ```bash
