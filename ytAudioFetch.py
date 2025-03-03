@@ -459,7 +459,7 @@ def parseEntryData(data: Dict[str, str], tagRequests: List[str] = None) -> Dict[
         # otherwise let the artist tag just be the uploadeS
         # This is obviously not always accurate but it's good enough for me not to spend more time on it
         if " - " in title: artist, title = title.split(" - ", 1)
-        else: artist = data.get("uploader")
+        else: artist = data.get("uploader").replace(" - Topic", "")
 
         parsedData["artist"] = artist
         parsedData["title"] = title
