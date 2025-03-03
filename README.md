@@ -52,7 +52,7 @@ Copy and paste
     ```
 
 ## Guide
-<img src="URLmodeLabelled.png" width="800" alt="labelled url mode">
+<img src="URLmodeLabelled.png" width="700" alt="labelled url mode">
 
 1. **URL Mode** - This is the main mode, it allows to download any playlist's or video's audio
 2. **JSON Mode** *(More info below next image)* - Using your own custom JSON file, you can put it your own tag data and have all the specified files be tagged
@@ -77,7 +77,7 @@ Copy and paste
 20. **Status feed:** updates as the script runs; shows the current video being processed and, when finished, the list of skipped operations
 21. **Output feed:** updates as the script runs; shows the console output from the script
 
-<img src="JSONmodeLabelled.png" width="800" alt="labelled json mode">
+<img src="JSONmodeLabelled.png" width="700" alt="labelled json mode">
 
 1. **Json file to extract from**
    - json files should be formatted like this
