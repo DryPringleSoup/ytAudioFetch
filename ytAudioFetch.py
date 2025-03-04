@@ -39,6 +39,7 @@ YDL_CONCISE_EXTRACTION_OPTS = { # For single videos extraction both of these opt
     "outtmpl": FILENAME_FORMAT
 }
 
+#URL MODE
 def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
     """
     Downloads audio from a YouTube URL and saves it to the specified directory.
@@ -95,43 +96,6 @@ def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
 
     return skipList
 
-def ytafJSON(arguments: Dict[str, Any]) -> List[Tuple[str, str]]:
-    """
-    Args:
-        arguments (Dict): A dictionary containing the following keys:
-            saveFilePath (str): The path to the save file to be extracted from
-            downloading (bool, optional): Whether to download the audio files. Defaults to True.
-            tagging (bool, optional): Whether to tag the audio files. Defaults to True.
-            replacingFiles (bool, optional): Whether to replace the audio if it already exists. Defaults to False.
-            changeableTags (List[str], optional): A list of tags that can be changed. Defaults to None which means all tags can be changed.
-            verboseSkipList (bool, optional): Whether to print all operations that were skipped or just downloads. Defaults to False.
-    """
-    # Validate and prepare input arguments
-    params = validateAndPrepareArgsJSON(arguments)
-    if params is None: return []
-    ( saveFilePath, downloading, tagging, replacingFiles, changeableTags, verboseSkipList ) = params
-
-    # Load save data
-    saveData = loadSaveData(saveFilePath)
-    entries = len(saveData)
-    skipList = []
-
-    # Setup ydl options for verbose download/tagging operations
-    ydlVerbose = YDL_VERBOSE_EXTRACTION_OPTS.copy()
-    
-    print()
-    for i, (audioFilePath, data) in enumerate(saveData.items(), start=1):
-        print(Fore.BLUE+f"JSON entry {i} of {entries}", audioFilePath)
-        print(*[ f"{key}: {value}" for key, value in data.items()], sep="\n")
-        processEntryJSON(
-            audioFilePath, data, ydlVerbose, downloading, tagging,
-            replacingFiles, changeableTags, skipList, verboseSkipList
-        )
-        print("\n")
-    else: print(Fore.BLUE + "Processing of all entries complete")
-    
-    return skipList
-
 def validateAndPrepareArgsURL(arguments: Dict) -> Tuple[str, str, str, bool, bool, bool, bool, bool, List[str], bool, bool]:
     """Validates and prepares the input arguments for the ytafURL function."""
     ytURL = arguments.get("ytURL")
@@ -160,6 +124,63 @@ def validateAndPrepareArgsURL(arguments: Dict) -> Tuple[str, str, str, bool, boo
     os.makedirs(outputDir, exist_ok=True)
     
     return ytURL, outputDir, saveFilePath, downloading, tagging, saving, replacingFiles, tagExisting, changeableTags, overwriteSave, verboseSkipList
+
+def loadSaveData(saveFilePath: str) -> Dict[str, Dict[str, str]]:
+    """Loads save data from a JSON file."""
+    print(Fore.BLUE + "Loading save data from " + saveFilePath)
+    try:
+        with open(saveFilePath, "r") as saveFile: return json.load(saveFile)
+    except:
+        print("Error loading JSON file. Initializing with empty data.")
+        return {}
+    finally: print()
+
+def extractBasicInfo(ytURL: str, outputDir: str, skipList: List[Tuple[str, str]]) -> Dict:
+    """
+    Downloads basic info of a YouTube playlist/video and normalizes it to a playlist-like structure.
+    Significantly faster than extracting the info with the base flags and allows for really fast checking of repeat video.
+    
+    Args:
+        ytURL (str): The URL of the YouTube playlist/video.
+        outputDir (str): The path to the output directory.
+        skipList (List[Tuple[str, str]]): A list of tuples where the first element is a YouTube URL and the second element is the reason why it was skipped.
+    
+    Returns:
+        Dict: A dictionary containing the basic info of the playlist/video.
+    """
+    ydlOpts = YDL_CONCISE_EXTRACTION_OPTS.copy()
+    ydlOpts["outtmpl"] = os.path.join(outputDir, ydlOpts["outtmpl"])
+    
+    with yt_dlp.YoutubeDL(ydlOpts) as ydl:
+        for i in range(RETRY_LIMIT):
+            try:
+                info = ydl.extract_info(ytURL, download=False)
+                break
+            except yt_dlp.utils.DownloadError as e:
+                extractionError = e
+                # Check for non-connection errors on first try
+                if i == 0 and not isConnectionError(extractionError):
+                    addToSkipList(skipList, ytURL, extractionError)
+                    info = {"entries": []}
+                    break
+                else:
+                    print(Fore.RED + f"Error extracting: {extractionError}")
+                    if i < RETRY_LIMIT - 1:
+                        print(Fore.YELLOW + "Retrying...")
+        else:
+            print(Fore.RED + f"Failed to extract information for {ytURL}")
+            addToSkipList(skipList, ytURL, extractionError)
+            info = {"entries": []}
+    
+    # playlists have the basename: "playlist" 
+    if info.get("webpage_url_basename") == "watch" and not skipList:
+        # Normalize single video to a playlist-like structure
+        info["url"] = info["webpage_url"]
+        info = {"entries": [info]}
+    
+    # For Debugging: outputs all entry information in readable format
+    # for entry in info.get("entries", []): print("\n".join(f"{key}: {value}" for key, value in entry.items()),end="\n\n")
+    return info
 
 def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Dict[str, Dict[str, str]], downloading: bool,
                     tagging: bool, saving: bool, replacingFiles: bool, tagExisting: bool, overwriteSave: bool,
@@ -260,6 +281,83 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
         print(Fore.YELLOW + "Cannot overwrite existing save data, skipping...")
         if verboseSkipList: addToSkipList(skipList, entry["url"], "Skipped Saving. Save data already exists when save overwrite is disabled.")
 
+def getActualFileName(infoDict: Dict[str, Any], ydlOpts: Dict[str, Any]) -> str:
+    """Returns the actual file name of a video from its info dictionary."""
+    return os.path.normpath( changeFileExt( yt_dlp.YoutubeDL(ydlOpts).prepare_filename(infoDict), "mp3" ) )
+
+def hasVerboseTags(changeableTags: List[str]) -> bool:
+    """Some tags need verbose info dict, this function checks if any of tags requested are one of those"""
+    return any(tag in ["thumbnail","description"] for tag in changeableTags)
+
+def parseEntryData(data: Dict[str, str], tagRequests: List[str] = None) -> Dict[str, str]:
+    """
+    Parses entry data from the YouTube video information.
+    
+    Args:
+        data (Dict[str, str]): The YouTube video information.
+        tagRequests (List[str], optional): A list of tags that can be changed. Defaults to None which means all tags can be changed.
+    
+    Returns:
+        Dict[str, str]: The parsed entry data.
+    """
+    if not tagRequests: tagRequests = list(ID3_ALIASES)
+
+    parsedData = {}
+    for tag in ID3_ALIASES:
+        if tag in tagRequests: parsedData[tag] = data.get(tag)
+
+    if "artist" in tagRequests or "title" in tagRequests:
+        title = data.get("title")
+
+        # If video title is in the form "[artist] - [title]" parse it into the tags like that
+        # otherwise let the artist tag just be the uploadeS
+        # This is obviously not always accurate but it's good enough for me not to spend more time on it
+        if " - " in title: artist, title = title.split(" - ", 1)
+        else: artist = data.get("uploader").replace(" - Topic", "")
+
+        parsedData["artist"] = artist
+        parsedData["title"] = title
+
+    return parsedData
+
+# JSON mode
+def ytafJSON(arguments: Dict[str, Any]) -> List[Tuple[str, str]]:
+    """
+    Args:
+        arguments (Dict): A dictionary containing the following keys:
+            saveFilePath (str): The path to the save file to be extracted from
+            downloading (bool, optional): Whether to download the audio files. Defaults to True.
+            tagging (bool, optional): Whether to tag the audio files. Defaults to True.
+            replacingFiles (bool, optional): Whether to replace the audio if it already exists. Defaults to False.
+            changeableTags (List[str], optional): A list of tags that can be changed. Defaults to None which means all tags can be changed.
+            verboseSkipList (bool, optional): Whether to print all operations that were skipped or just downloads. Defaults to False.
+    """
+    # Validate and prepare input arguments
+    params = validateAndPrepareArgsJSON(arguments)
+    if params is None: return []
+    ( saveFilePath, downloading, tagging, replacingFiles, changeableTags, verboseSkipList ) = params
+
+    # Load save data
+    saveData = loadSaveData(saveFilePath)
+    entries = len(saveData)
+    skipList = []
+
+    # Setup ydl options for verbose download/tagging operations
+    ydlVerbose = YDL_VERBOSE_EXTRACTION_OPTS.copy()
+    
+    print()
+    for i, (audioFilePath, data) in enumerate(saveData.items(), start=1):
+        print(Fore.BLUE+f"JSON entry {i} of {entries}", audioFilePath)
+        print(*[ f"{key}: {value}" for key, value in data.items()], sep="\n")
+        processEntryJSON(
+            audioFilePath, data, ydlVerbose, downloading, tagging,
+            replacingFiles, changeableTags, skipList, verboseSkipList
+        )
+        print("\n")
+    else: print(Fore.BLUE + "Processing of all entries complete")
+    
+    return skipList
+
 def validateAndPrepareArgsJSON(arguments: Dict) -> Tuple[str, bool, bool, bool, List[str], bool]:
     """Validates and prepares the input arguments for the ytafJSON function."""
     saveFilePath = arguments.get("saveFilePath")
@@ -346,19 +444,7 @@ def processEntryJSON(audioFilePath: str, data: Dict[str, Dict[str, str]], ydlOpt
         if wasTagged: print(Fore.GREEN + audioFilePath + " has been fully downloaded and tagged")
         elif verboseSkipList: addToSkipList(skipList, audioFilePath, result)
 
-def hasVerboseTags(changeableTags: List[str]) -> bool:
-    """Some tags need verbose info dict, this function checks if any of tags requested are one of those"""
-    return any(tag in ["thumbnail","description"] for tag in changeableTags)
-
-def isConnectionError(error: yt_dlp.utils.DownloadError) -> bool:
-    """Checks if the given error is a connection error."""
-    error = str(error)
-    return any(phrase in error for phrase in ["Failed to resolve", "Failed to extract"])
-
-def getActualFileName(infoDict: Dict[str, Any], ydlOpts: Dict[str, Any]) -> str:
-    """Returns the actual file name of a video from its info dictionary."""
-    return os.path.normpath( changeFileExt( yt_dlp.YoutubeDL(ydlOpts).prepare_filename(infoDict), "mp3" ) )
-
+# Other general helper functions
 def addToSkipList(skipList: List[Tuple[str, str]], ytURL: str, error: Union[yt_dlp.utils.DownloadError, str]):
     """Adds an entry to the skip list."""
     if isinstance(error, yt_dlp.utils.DownloadError):
@@ -379,61 +465,10 @@ def addToSkipList(skipList: List[Tuple[str, str]], ytURL: str, error: Union[yt_d
         if error == "Forbidden": error += ". Check your internet and/or try to download again."
     skipList.append((ytURL, error))
 
-def extractBasicInfo(ytURL: str, outputDir: str, skipList: List[Tuple[str, str]]) -> Dict:
-    """
-    Downloads basic info of a YouTube playlist/video and normalizes it to a playlist-like structure.
-    Significantly faster than extracting the info with the base flags and allows for really fast checking of repeat video.
-    
-    Args:
-        ytURL (str): The URL of the YouTube playlist/video.
-        outputDir (str): The path to the output directory.
-        skipList (List[Tuple[str, str]]): A list of tuples where the first element is a YouTube URL and the second element is the reason why it was skipped.
-    
-    Returns:
-        Dict: A dictionary containing the basic info of the playlist/video.
-    """
-    ydlOpts = YDL_CONCISE_EXTRACTION_OPTS.copy()
-    ydlOpts["outtmpl"] = os.path.join(outputDir, ydlOpts["outtmpl"])
-    
-    with yt_dlp.YoutubeDL(ydlOpts) as ydl:
-        for i in range(RETRY_LIMIT):
-            try:
-                info = ydl.extract_info(ytURL, download=False)
-                break
-            except yt_dlp.utils.DownloadError as e:
-                extractionError = e
-                # Check for non-connection errors on first try
-                if i == 0 and not isConnectionError(extractionError):
-                    addToSkipList(skipList, ytURL, extractionError)
-                    info = {"entries": []}
-                    break
-                else:
-                    print(Fore.RED + f"Error extracting: {extractionError}")
-                    if i < RETRY_LIMIT - 1:
-                        print(Fore.YELLOW + "Retrying...")
-        else:
-            print(Fore.RED + f"Failed to extract information for {ytURL}")
-            addToSkipList(skipList, ytURL, extractionError)
-            info = {"entries": []}
-    
-    # playlists have the basename: "playlist" 
-    if info.get("webpage_url_basename") == "watch" and not skipList:
-        # Normalize single video to a playlist-like structure
-        info["url"] = info["webpage_url"]
-        info = {"entries": [info]}
-    
-    # For Debugging: outputs all entry information in readable format
-    # for entry in info.get("entries", []): print("\n".join(f"{key}: {value}" for key, value in entry.items()),end="\n\n")
-    return info
-
-def loadSaveData(saveFilePath: str) -> Dict[str, Dict[str, str]]:
-    """Loads save data from a JSON file."""
-    print(Fore.BLUE + "Loading save data from " + saveFilePath)
-    try:
-        with open(saveFilePath, "r") as saveFile: return json.load(saveFile)
-    except:
-        print("Error loading JSON file. Initializing with empty data.")
-        return {}
+def isConnectionError(error: yt_dlp.utils.DownloadError) -> bool:
+    """Checks if the given error is a connection error."""
+    error = str(error)
+    return any(phrase in error for phrase in ["Failed to resolve", "Failed to extract"])
 
 def changeFileExt(filename: str, newExt: str) -> str:
     """Changes the file extension of the given filename."""
@@ -441,37 +476,7 @@ def changeFileExt(filename: str, newExt: str) -> str:
         if char == ".": break
     return filename[:len(filename)-i]+newExt
 
-def parseEntryData(data: Dict[str, str], tagRequests: List[str] = None) -> Dict[str, str]:
-    """
-    Parses entry data from the YouTube video information.
-    
-    Args:
-        data (Dict[str, str]): The YouTube video information.
-        tagRequests (List[str], optional): A list of tags that can be changed. Defaults to None which means all tags can be changed.
-    
-    Returns:
-        Dict[str, str]: The parsed entry data.
-    """
-    if not tagRequests: tagRequests = list(ID3_ALIASES)
-
-    parsedData = {}
-    for tag in ID3_ALIASES:
-        if tag in tagRequests: parsedData[tag] = data.get(tag)
-
-    if "artist" in tagRequests or "title" in tagRequests:
-        title = data.get("title")
-
-        # If video title is in the form "[artist] - [title]" parse it into the tags like that
-        # otherwise let the artist tag just be the uploadeS
-        # This is obviously not always accurate but it's good enough for me not to spend more time on it
-        if " - " in title: artist, title = title.split(" - ", 1)
-        else: artist = data.get("uploader").replace(" - Topic", "")
-
-        parsedData["artist"] = artist
-        parsedData["title"] = title
-
-    return parsedData
-
+# Tagging functions
 def addID3Tags(audioFilePath: str, data: Dict[str, str] = None) -> Tuple[str, bool]:
     """
     Adds ID3 tags to the audio file.
@@ -583,6 +588,7 @@ def downloadThumbnail(thumbnailURL: str) -> str:
         print(Fore.RED+"Failed to download thumbnail:", thumbnailURL)
         return "NoCover.jpg"
 
+# Input validation
 def strInput(inputText: str) -> str:
     """Asks the user for input until a non-empty string is entered."""
     while not (string := input(inputText)): pass
