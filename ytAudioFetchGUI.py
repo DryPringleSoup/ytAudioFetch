@@ -456,7 +456,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         output = output.strip()
         bufferMatch = re.search(r"(?:Video|JSON entry) \d+ of \d+$", output)
         if bufferMatch: self.statusLabel.setText("Processing: " + bufferMatch.group(0))
-        else: self.outputLabel.setText("Output:\n"+output)
+        elif output: self.outputLabel.setText("Output:\n"+output)
 
     def renableStartButton(self):
         self.startButton.setEnabled(True)

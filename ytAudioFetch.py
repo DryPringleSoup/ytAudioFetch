@@ -1,7 +1,7 @@
 import os, requests, yt_dlp, json, re, mimetypes
 from PIL import Image
 from mutagen.mp3 import MP3
-from mutagen.id3 import ID3, WOAS, TIT2, TPE1, TPUB, APIC
+from mutagen.id3 import ID3, WOAS, TIT2, TPE1, TPUB, APIC, COMM
 from typing import Any, Tuple, List, Dict, Union
 from colorama import Fore, init
 init(autoreset=True)
@@ -10,11 +10,12 @@ HOME_DIR = os.path.expanduser("~")
 RETRY_LIMIT = 3
 FILENAME_FORMAT = "YTAF-%(id)s-%(title)s.%(ext)s"
 ID3_ALIASES = { # official ID3 tagnames: https://exiftool.org/TagNames/ID3.html
-    "url": ("WOAS", WOAS), # SourceURL
-    "title": ("TIT2", TIT2), # Title
-    "artist": ("TPE1", TPE1), # Artist
-    "uploader": ("TPUB", TPUB), # Publisher
-    "thumbnail": ("APIC", APIC) # Picture
+    "url": WOAS, # SourceURL
+    "title": TIT2, # Title
+    "artist": TPE1, # Artist
+    "uploader": TPUB, # Publisher
+    "thumbnail": APIC, # Picture
+    "description": COMM # Comment
 }
 def hook(d: Dict[str, Any]) -> None:
     if d["status"] == "finished": print("  [dl hook] Finished downloading info of", d['info_dict']['title'], end="")
@@ -120,7 +121,7 @@ def ytafJSON(arguments: Dict[str, Any]) -> List[Tuple[str, str]]:
     
     print()
     for i, (audioFilePath, data) in enumerate(saveData.items(), start=1):
-        print(Fore.BLUE+f"JSON entry {i} of {entries}:", audioFilePath)
+        print(Fore.BLUE+f"JSON entry {i} of {entries}", audioFilePath)
         print(*[ f"{key}: {value}" for key, value in data.items()], sep="\n")
         processEntryJSON(
             audioFilePath, data, ydlVerbose, downloading, tagging,
@@ -195,7 +196,7 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
     shouldTag = tagging and changeableTags and ((tagExisting and audioFileExists) or shouldDownload)
     shouldSave = saving and changeableTags and (overwriteSave or not audioSaveExists)
 
-    if shouldDownload or ((shouldTag or shouldSave) and "thumbnail" in changeableTags):
+    if shouldDownload or ((shouldTag or shouldSave) and hasVerboseTags(changeableTags)):
         print(Fore.GREEN + f"{'Downloading' if shouldDownload else 'Extracting info for'} ({entry['url']}):", entry["title"])
         with yt_dlp.YoutubeDL(ydlOpts) as ydl:
             for i in range(RETRY_LIMIT):
@@ -213,6 +214,7 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
 
                     # The original, full resolution thumbnail can only be accessed through verbose extraction
                     entry["thumbnail"] = verboseInfo["thumbnail"]
+                    entry["description"] = verboseInfo["description"]
                     break
                 except yt_dlp.utils.DownloadError as e:
                     extractionError = e
@@ -343,6 +345,10 @@ def processEntryJSON(audioFilePath: str, data: Dict[str, Dict[str, str]], ydlOpt
         result, wasTagged = addID3Tags(audioFilePath, metadata)
         if wasTagged: print(Fore.GREEN + audioFilePath + " has been fully downloaded and tagged")
         elif verboseSkipList: addToSkipList(skipList, audioFilePath, result)
+
+def hasVerboseTags(changeableTags: List[str]) -> bool:
+    """Some tags need verbose info dict, this function checks if any of tags requested are one of those"""
+    return any(tag in ["thumbnail","description"] for tag in changeableTags)
 
 def isConnectionError(error: yt_dlp.utils.DownloadError) -> bool:
     """Checks if the given error is a connection error."""
@@ -488,13 +494,18 @@ def addID3Tags(audioFilePath: str, data: Dict[str, str] = None) -> Tuple[str, bo
         audio = MP3(audioFilePath, ID3=ID3)
         coverInData = "thumbnail" in data
         cover = data.copy().pop("thumbnail", None)
+        url = data.copy().pop("url", None)
         for tag, value in data.items():
             if tag in ID3_ALIASES:
-                id3Tag = ID3_ALIASES[tag][1]
+                id3Tag = ID3_ALIASES[tag]
                 tagText = value or f"[No {tag}]"
                 print(Fore.MAGENTA+f"Adding {tag} tag:", tagText)
                 audio.tags.add(id3Tag(encoding=3, text=[tagText]))
             else: print(Fore.YELLOW+"Warning!","Unknown tag:", tag)
+
+        if url:
+            print(Fore.MAGENTA+"Adding URL:", url)
+            audio.tags.add(WOAS(encoding=3, url=url))
 
         # Cover path from either online or local source
         if coverInData:
