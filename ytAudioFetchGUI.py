@@ -74,28 +74,30 @@ class OutputCapture(QtCore.QObject):
     def __init__(self):
         super().__init__()
         self.outputBuffer = ""  # Initialize the output buffer
-        self.outputClear = False
         self.original_stdout = sys.stdout
 
     def write(self, message):
-        # Store the newest message in the buffer
-        # if there's a newline, clear the buffer
-        if self.outputClear:
-            if message.strip():
-                self.outputBuffer = message
-                self.outputClear = False
-        else: self.outputBuffer += message
-        if "\n" in message: self.outputClear = True
-        if len(self.outputBuffer) >= 50: self.outputBuffer = self.outputBuffer[:50]+"..."
+        # console writes one character to stdout at a time and message is that character
+
+        # write to buffer but if there is a newest character is a newline clear it
+        self.outputWrite = "\n" not in message
+        if self.outputWrite: self.outputBuffer += message
+        elif message.strip():
+            self.outputBuffer = message
+            self.outputWrite = True
+
+        # Truncate the buffer
+        truncateLength = 80
+        if len(self.outputBuffer) >= truncateLength: self.outputBuffer = self.outputBuffer[:truncateLength]+"..."
 
         # Remove ANSI color codes
         for color in [Fore.RED, Fore.GREEN, Fore.BLUE, Fore.MAGENTA, Fore.YELLOW]: self.outputBuffer = self.outputBuffer.replace(color, "")
 
         #Write to console
         self.original_stdout.write(message)
-
+        
         # Update the label with the new message
-        self.textUpdated.emit(message)
+        self.textUpdated.emit(self.outputBuffer)
 
     def flush(self): pass  # Required for compatibility with some interfaces
 
