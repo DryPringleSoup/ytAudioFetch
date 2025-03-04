@@ -70,6 +70,7 @@ def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
     
     # Extract basic info (with retry logic)
     info = extractBasicInfo(ytURL, outputDir, skipList)
+    numVideos = len(info.get('entries', []))
     
     # Setup ydl options for verbose download/tagging operations
     ydlOpts = YDL_VERBOSE_EXTRACTION_OPTS.copy()
@@ -81,7 +82,7 @@ def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
     
     print()
     for i, entry in enumerate(info.get("entries", []), start=1): # Process each entry in the info
-        print(Fore.BLUE + f"Video {i} of {len(info.get('entries', []))}")
+        print(Fore.BLUE + f"Video {i} of {numVideos}", "-", entry['url'])
         processEntryURL(
             entry, ydlOpts, saveData, downloading, tagging,
             saving, replacingFiles, tagExisting, overwriteSave,
@@ -347,7 +348,7 @@ def ytafJSON(arguments: Dict[str, Any]) -> List[Tuple[str, str]]:
     
     print()
     for i, (audioFilePath, data) in enumerate(saveData.items(), start=1):
-        print(Fore.BLUE+f"JSON entry {i} of {entries}", audioFilePath)
+        print(Fore.BLUE+f"JSON entry {i} of {entries}", "-", audioFilePath)
         print(*[ f"{key}: {value}" for key, value in data.items()], sep="\n")
         processEntryJSON(
             audioFilePath, data, ydlVerbose, downloading, tagging,

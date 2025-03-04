@@ -78,6 +78,7 @@ class OutputCapture(QtCore.QObject):
 
     def write(self, message):
         # console writes one character to stdout at a time and message is that character
+        self.original_stdout.write(message)
 
         # write to buffer but if there is a newest character is a newline clear it
         self.outputWrite = "\n" not in message
@@ -92,9 +93,6 @@ class OutputCapture(QtCore.QObject):
 
         # Remove ANSI color codes
         for color in [Fore.RED, Fore.GREEN, Fore.BLUE, Fore.MAGENTA, Fore.YELLOW]: self.outputBuffer = self.outputBuffer.replace(color, "")
-
-        #Write to console
-        self.original_stdout.write(message)
         
         # Update the label with the new message
         self.textUpdated.emit(self.outputBuffer)
@@ -456,7 +454,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         # Update status label with video index
         # regex checks for "['Video' or 'JSON entry'] [num] of [num]"
         output = output.strip()
-        bufferMatch = re.search(r"(?:Video|JSON entry) \d+ of \d+$", output)
+        bufferMatch = re.search(r"(?:Video|JSON entry) \d+ of \d+ - .*", output)
         if bufferMatch: self.statusLabel.setText("Processing: " + bufferMatch.group(0))
         elif output: self.outputLabel.setText("Output:\n"+output)
 
