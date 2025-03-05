@@ -73,9 +73,8 @@ class OutputCapture(QtCore.QObject):
     
     def __init__(self):
         super().__init__()
-        self.outputBuffer = ""  # Initialize the output buffer
-        self.outputReset = True
-        self.original_stdout = sys.stdout
+        self.outputBuffer = ""  # buffer for output label
+        self.original_stdout = sys.stdout # console
 
     def write(self, message):
         # Write the message to the original stdout (console)
@@ -83,14 +82,15 @@ class OutputCapture(QtCore.QObject):
 
         if message == "\n": self.outputBuffer = "" # reset buffer if new line
         else:
-            self.outputBuffer += message.replace("\n", "  ")
+            if message.endswith("\n"): self.outputBuffer = message[:-1]
+            else: self.outputBuffer += message
 
             # Remove ANSI color codes
             for color in [Fore.RED, Fore.GREEN, Fore.BLUE, Fore.MAGENTA, Fore.YELLOW]: self.outputBuffer = self.outputBuffer.replace(color, "")
             
             # Update the label with the new message
             self.textUpdated.emit(self.outputBuffer)
-
+    
     def flush(self): pass  # Required for compatibility with some interfaces
 
 class Worker(QtCore.QThread):
