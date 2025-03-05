@@ -74,28 +74,22 @@ class OutputCapture(QtCore.QObject):
     def __init__(self):
         super().__init__()
         self.outputBuffer = ""  # Initialize the output buffer
+        self.outputReset = True
         self.original_stdout = sys.stdout
 
     def write(self, message):
-        # console writes one character to stdout at a time and message is that character
+        # Write the message to the original stdout (console)
         self.original_stdout.write(message)
 
-        # write to buffer but if there is a newest character is a newline clear it
-        self.outputWrite = "\n" not in message
-        if self.outputWrite: self.outputBuffer += message
-        elif message.strip():
-            self.outputBuffer = message
-            self.outputWrite = True
+        if message == "\n": self.outputBuffer = "" # reset buffer if new line
+        else:
+            self.outputBuffer += message.replace("\n", "  ")
 
-        # Truncate the buffer
-        truncateLength = 80
-        if len(self.outputBuffer) >= truncateLength: self.outputBuffer = self.outputBuffer[:truncateLength]+"..."
-
-        # Remove ANSI color codes
-        for color in [Fore.RED, Fore.GREEN, Fore.BLUE, Fore.MAGENTA, Fore.YELLOW]: self.outputBuffer = self.outputBuffer.replace(color, "")
-        
-        # Update the label with the new message
-        self.textUpdated.emit(self.outputBuffer)
+            # Remove ANSI color codes
+            for color in [Fore.RED, Fore.GREEN, Fore.BLUE, Fore.MAGENTA, Fore.YELLOW]: self.outputBuffer = self.outputBuffer.replace(color, "")
+            
+            # Update the label with the new message
+            self.textUpdated.emit(self.outputBuffer)
 
     def flush(self): pass  # Required for compatibility with some interfaces
 
@@ -454,9 +448,14 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         # Update status label with video index
         # regex checks for "['Video' or 'JSON entry'] [num] of [num]"
         output = output.strip()
+
+        # Truncate the buffer
+        truncateLength = 80
+        if len(output) >= truncateLength: output = output[:truncateLength]+"..."
+
         bufferMatch = re.search(r"(?:Video|JSON entry) \d+ of \d+ - .*", output)
         if bufferMatch: self.statusLabel.setText("Processing: " + bufferMatch.group(0))
-        elif output: self.outputLabel.setText("Output:\n"+output)
+        elif not (output.startswith("Video ") or output.startswith("JSON entry ")): self.outputLabel.setText("Output:\n"+output)
 
     def renableStartButton(self):
         self.startButton.setEnabled(True)
