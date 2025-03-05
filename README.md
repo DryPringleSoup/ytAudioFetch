@@ -31,8 +31,9 @@ Light [yt-dlp](https://github.com/yt-dlp/yt-dlp) gui that fetches audio from pla
    ```bash
    python ytAudioFetchGUI.py
    ```
+   - you can also run this script without the GUI by typing `python ytAudioFetc.py`
 
-Copy and paste
+#### Copy and paste
 - Windows
     ```bash
     git clone https://github.com/DryPringleSoup/ytAudioFetch.git
@@ -101,4 +102,30 @@ Copy and paste
    - *Note*: not all tags are required to be included, however only supported tags (see 13-17) will be added
 
 ## App Previews
+### GUI
 ![app previews](allLooks.png)
+
+### Original script
+```bash
+python ytAudioFetch.py
+```
+```bash
+URL or JSON mode? (0 or 1): 0
+Operations:
+        d: Download audio       t: Tag audio    s: save tags
+Include the letters for each of operation you want to perform: dts
+Avaliable tags:
+        1: url
+        2: title
+        3: artist
+        4: uploader
+        5: thumbnail
+        6: description
+Enter the tags you want to change: 12345
+Enter the YouTube playlist/video URL: https://www.youtube.com/playlist?list=PLUujrJZl_60rr9OQMLSzHvrbIX0dCen-i
+Enter the directory to save the MP3 files: ~/Music
+Enter the path of the JSON save file: ~/ytAudioFetchSave.json
+Replace existing files? (y/n): y
+Overwrite data in save file? (y/n): y
+Verbose skip list (show all operations skipped)? (y/n): y
+```
