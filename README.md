@@ -112,7 +112,7 @@ python ytAudioFetch.py
 ```
 URL or JSON mode? (0 or 1): 0
 Operations:
-        d: Download audio       t: Tag audio    s: save tags
+        d: Download audio       t: Tag audio    s: Save tags
 Include the letters for each of operation you want to perform: dts
 Avaliable tags:
         1: url
@@ -121,7 +121,7 @@ Avaliable tags:
         4: uploader
         5: thumbnail
         6: description
-Enter the tags you want to change: 12345
+Enter the tags you want to change: 123456
 Enter the YouTube playlist/video URL: https://www.youtube.com/playlist?list=PLUujrJZl_60rr9OQMLSzHvrbIX0dCen-i
 Enter the directory to save the MP3 files: ~/Music
 Enter the path of the JSON save file: ~/ytAudioFetchSave.json

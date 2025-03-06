@@ -609,7 +609,7 @@ if __name__ == "__main__": # User inputs
             continue
         
         print("Operations:")
-        print("\td: Download audio\tt: Tag audio"+("\ts: save tags" if mode == "0" else ""))
+        print("\td: Download audio\tt: Tag audio"+("\ts: Save tags" if mode == "0" else ""))
         downloadMethod = strInput("Include the letters for each of operation you want to perform: ").lower()
         downloading, tagging, saving = "d" in downloadMethod, "t" in downloadMethod, "s" in downloadMethod and mode == "0"
         
