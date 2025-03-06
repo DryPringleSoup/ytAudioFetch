@@ -258,26 +258,9 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
                 print(Fore.RED + f"Failed to {'download' if shouldDownload else 'extract information for'} {entry['url']}")
                 addToSkipList(skipList, entry["url"], extractionError)
                 return
-    elif shouldDownload and not replacingFiles and audioFileExists:
-        print(Fore.YELLOW + audioFilePath + " already exists, skipping...")
-        if verboseSkipList: addToSkipList(skipList, entry["url"], "Skipped Download. Audio file already exists.")
 
     audioFileExists = os.path.exists(audioFilePath)
     shouldTag = shouldTag and audioFileExists
-
-    skipPrint = skipReason = ""
-    if not shouldTag:
-        if not audioFileExists:
-            skipPrint = audioFilePath + " does not exist, tagging skipped"
-            skipReason += "Skipped Tagging (Audio file does not exist) "
-        elif not tagExisting:
-            skipPrint += "Cannot tag existing file, tagging skipped"
-            skipReason += "Skipped Tagging (Can't tag existing file) "
-        
-    if not shouldSave and not overwriteSave and audioSaveExists:
-        if skipPrint: skipPrint += ". Also, "
-        skipPrint += "cannot overwrite existing save data for "+audioFilePath+", saving skipped"
-        skipReason += "Skipped Saving (Can't overwerite save file)"
     
     if shouldTag or shouldSave:
         print(Fore.GREEN + "Parsing entry data...")
@@ -297,6 +280,28 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
                 if overwriteSave: saveData[audioFilePath].update(metadata)
             else: saveData[audioFilePath] = metadata
     
+        skipPrint = skipReason = ""
+    
+    # Skip message handling
+
+    if not shouldDownload and not replacingFiles and audioFileExists:
+        skipPrint = audioFilePath + " already exists, downloading skipped"
+        skipReason += "Skipped Download (Audio file already exists) "
+    
+    if not shouldTag:
+        if skipPrint: skipPrint += ". "
+        if not audioFileExists:
+            skipPrint = audioFilePath + " does not exist, tagging skipped"
+            skipReason += "Skipped Tagging (Audio file does not exist) "
+        elif not tagExisting:
+            skipPrint += "Cannot tag existing file, tagging skipped"
+            skipReason += "Skipped Tagging (Can't tag existing file) "
+        
+    if not shouldSave and not overwriteSave and audioSaveExists:
+        if skipPrint: skipPrint += ". "
+        skipPrint += "cannot overwrite existing save data for "+audioFilePath+", saving skipped"
+        skipReason += "Skipped Saving (Can't overwerite save file)"
+
     if skipPrint:
         print(Fore.YELLOW + skipPrint)
         if verboseSkipList: addToSkipList(skipList, entry["url"], skipReason)
