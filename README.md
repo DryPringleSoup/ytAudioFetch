@@ -87,16 +87,16 @@ Light [yt-dlp](https://github.com/yt-dlp/yt-dlp) gui that fetches the audio from
    - json files should be formatted like this
     ```json
     {
-      ⋯ ,
+      "...": { },
       "[file path to mp3]": {
          "url": "[youtube URL (playlist URLs don't work)]",
          "title": "[track title]",
          "artist": "[artist(s)]",
          "uploader": "[uploader]",
-         "thumbnail": "[file path to image or raw link to image file]".
+         "thumbnail": "[file path to image or raw link to image file]",
          "description": "[description]"
       },
-      ⋯
+      "...": { }
     }
     ```
    - *Note*: not all tags are required to be included, however only supported tags (see 13-17) will be added
