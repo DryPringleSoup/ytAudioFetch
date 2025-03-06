@@ -279,10 +279,9 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
             if audioFilePath in saveData:
                 if overwriteSave: saveData[audioFilePath].update(metadata)
             else: saveData[audioFilePath] = metadata
-    
-        skipPrint = skipReason = ""
-    
+        
     # Skip message handling
+    skipPrint = skipReason = ""
 
     if not shouldDownload and not replacingFiles and audioFileExists:
         skipPrint = audioFilePath + " already exists, downloading skipped"
