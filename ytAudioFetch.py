@@ -281,27 +281,27 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
             else: saveData[audioFilePath] = metadata
         
     # Skip message handling
-    skipMessages = ([], [])
+    
+    skipMessages = ([], []) # first for console message and second for skip list
 
     if not shouldDownload and not replacingFiles and audioFileExists:
         skipMessages[0].append("Downloading skipped ~ "+audioFilePath+" already exists")
-        skipMessages[1].append("Skipped Download (Audio file already exists)")
+        if verboseSkipList: skipMessages[1].append("Skipped Download (Audio file already exists)")
     
     if not shouldTag:
         if not audioFileExists:
             skipMessages[0].append("Tagging skipped ~ "+audioFilePath+" does not exist")
-            skipMessages[1].append("Skipped Tagging (Audio file does not exist)")
+            if verboseSkipList: skipMessages[1].append("Skipped Tagging (Audio file does not exist)")
         elif not tagExisting:
             skipMessages[0].append("Tagging skipped ~ Cannot tag existing file")
-            skipMessages[1].append("Skipped Tagging (Can't tag existing file)")
+            if verboseSkipList: skipMessages[1].append("Skipped Tagging (Can't tag existing file)")
         
     if not shouldSave and not overwriteSave and audioSaveExists:
         skipMessages[0].append("Saving skipped ~ Cannot overwrite existing save data for "+audioFilePath)
-        skipMessages[1].append("Skipped Saving (Can't overwerite save file)")
-
-    if skipMessages[0]:
-        print(Fore.YELLOW + "\n".join(skipMessages[0]))
-        if verboseSkipList: addToSkipList(skipList, entry["url"], " | ".join(skipMessages[1]))
+        if verboseSkipList: skipMessages[1].append("Skipped Saving (Can't overwerite save file)")
+    
+    if skipMessages[0]: print(Fore.YELLOW + "\n".join(skipMessages[0]))
+    if verboseSkipList: addToSkipList(skipList, entry["url"], " | ".join(skipMessages[1]))
 
 def getActualFileName(infoDict: Dict[str, Any], ydlOpts: Dict[str, Any]) -> str:
     """Returns the actual file name of a video from its info dictionary."""
