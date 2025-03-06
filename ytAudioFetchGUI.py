@@ -101,14 +101,6 @@ class Worker(QtCore.QThread):
         self.mode = mode
         self.arguements = arguments
 
-class Worker(QtCore.QThread):
-    outputSignal = QtCore.pyqtSignal(str)
-
-    def __init__(self, mode, arguments):
-        super().__init__()
-        self.mode = mode
-        self.arguements = arguments
-
     def run(self):
         try:
             if self.mode == 0: skipList = ytafURL(self.arguements)
