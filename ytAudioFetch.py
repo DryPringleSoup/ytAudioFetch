@@ -237,6 +237,7 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
                     # The original, full resolution thumbnail can only be accessed through verbose extraction
                     entry["thumbnail"] = verboseInfo["thumbnail"]
                     entry["description"] = verboseInfo["description"]
+                    if shouldDownload: print(Fore.GREEN + audioFilePath + " has been downloaded successfully")
                     break
                 except yt_dlp.utils.DownloadError as e:
                     extractionError = e
@@ -268,7 +269,7 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
     if shouldTag:
         print(Fore.GREEN + "Adding tags to:", audioFilePath)
         result, wasTagged = addID3Tags(audioFilePath, metadata)
-        if wasTagged: print(Fore.GREEN + audioFilePath + " has been fully downloaded and tagged")
+        if wasTagged: print(Fore.GREEN + audioFilePath + " has been tagged")
         elif verboseSkipList: addToSkipList(skipList, entry["url"], result)
     
     if shouldSave:
