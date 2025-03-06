@@ -298,7 +298,7 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
         
     if not shouldSave and not overwriteSave and audioSaveExists:
         if skipPrint: skipPrint += ". "
-        skipPrint += "cannot overwrite existing save data for "+audioFilePath+", saving skipped"
+        skipPrint += "Cannot overwrite existing save data for "+audioFilePath+", saving skipped"
         skipReason += "Skipped Saving (Can't overwerite save file)"
 
     if skipPrint:
