@@ -265,17 +265,18 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
     audioFileExists = os.path.exists(audioFilePath)
     shouldTag = shouldTag and audioFileExists
 
-    skipReason = ""
+    skipPrint = skipReason = ""
     if not shouldTag:
         if not audioFileExists:
-            print(Fore.YELLOW + audioFilePath + " does not exist, tagging skipped")
+            skipPrint = audioFilePath + " does not exist, tagging skipped"
             skipReason += "Skipped Tagging (Audio file does not exist) "
         elif not tagExisting:
-            print(Fore.YELLOW + "Cannot tag existing file, tagging skipped")
+            skipPrint += "Cannot tag existing file, tagging skipped"
             skipReason += "Skipped Tagging (Can't tag existing file) "
         
     if not shouldSave and not overwriteSave and audioSaveExists:
-        print(Fore.YELLOW + audioFilePath + " does not exist, saving skipped")
+        if skipPrint: skipPrint += ". Also, "
+        skipPrint += "cannot overwrite existing save data for "+audioFilePath+", saving skipped"
         skipReason += "Skipped Saving (Can't overwerite save file)"
     
     if shouldTag or shouldSave:
@@ -296,7 +297,9 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
                 if overwriteSave: saveData[audioFilePath].update(metadata)
             else: saveData[audioFilePath] = metadata
     
-    if skipReason: addToSkipList(skipList, entry["url"], skipReason)
+    if skipPrint:
+        print(Fore.YELLOW + skipPrint)
+        if verboseSkipList: addToSkipList(skipList, entry["url"], skipReason)
 
 def getActualFileName(infoDict: Dict[str, Any], ydlOpts: Dict[str, Any]) -> str:
     """Returns the actual file name of a video from its info dictionary."""
