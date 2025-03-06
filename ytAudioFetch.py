@@ -494,8 +494,8 @@ def addID3Tags(audioFilePath: str, tagData: Dict[str, str] = None) -> Tuple[str,
         print(Fore.YELLOW+"Skipping ID3 tagging...")
         return (f"Skipping ID3 tagging. Audio file {repr(audioFilePath)} does not exist.", False)
 
-    if not tagData: data = {}
-    else: data = tagData.copy() # copy to avoid modifying original
+    if tagData: data = tagData.copy() # copy to avoid modifying original
+    else: data = {}
 
     try:
         audio = MP3(audioFilePath, ID3=ID3)
