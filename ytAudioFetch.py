@@ -258,6 +258,9 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
                 print(Fore.RED + f"Failed to {'download' if shouldDownload else 'extract information for'} {entry['url']}")
                 addToSkipList(skipList, entry["url"], extractionError)
                 return
+    elif shouldDownload and not replacingFiles and audioFileExists:
+        print(Fore.YELLOW + audioFilePath + " already exists, skipping...")
+        if verboseSkipList: addToSkipList(skipList, entry["url"], "Skipped Download. Audio file already exists.")
 
     audioFileExists = os.path.exists(audioFilePath)
     shouldTag = shouldTag and audioFileExists
@@ -266,22 +269,25 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
         print(Fore.GREEN + "Parsing entry data...")
         metadata = parseEntryData(entry, changeableTags)
     
-    if shouldTag:
-        print(Fore.GREEN + "Adding tags to:", audioFilePath)
-        result, wasTagged = addID3Tags(audioFilePath, metadata)
-        if wasTagged: print(Fore.GREEN + audioFilePath + " has been tagged")
-        elif verboseSkipList: addToSkipList(skipList, entry["url"], result)
-    
-    if shouldSave:
-        print(Fore.GREEN + ("Overwriting save" if audioSaveExists else "Saving initial") + " data...")
-        for key, value in metadata.items(): print( key.capitalize()+": "+value )
+        if shouldTag:
+            print(Fore.GREEN + "Adding tags to:", audioFilePath)
+            result, wasTagged = addID3Tags(audioFilePath, metadata)
+            if wasTagged: print(Fore.GREEN + audioFilePath + " has been tagged")
+            elif verboseSkipList: addToSkipList(skipList, entry["url"], result)
+        elif not audioFileExists:
+            print(Fore.YELLOW + audioFilePath + " does not exist, skipping...")
+            if verboseSkipList: addToSkipList(skipList, entry["url"], "Skipped Tagging. Audio file does not exist.")
         
-        if audioFilePath in saveData:
-            if overwriteSave: saveData[audioFilePath].update(metadata)
-        else: saveData[audioFilePath] = metadata
-    elif not overwriteSave and audioSaveExists:  
-        print(Fore.YELLOW + "Cannot overwrite existing save data, skipping...")
-        if verboseSkipList: addToSkipList(skipList, entry["url"], "Skipped Saving. Save data already exists when save overwrite is disabled.")
+        if shouldSave:
+            print(Fore.GREEN + ("Overwriting save" if audioSaveExists else "Saving initial") + " data...")
+            for key, value in metadata.items(): print( key.capitalize()+": "+value )
+            
+            if audioFilePath in saveData:
+                if overwriteSave: saveData[audioFilePath].update(metadata)
+            else: saveData[audioFilePath] = metadata
+        elif not overwriteSave and audioSaveExists:  
+            print(Fore.YELLOW + "Cannot overwrite existing save data, skipping...")
+            if verboseSkipList: addToSkipList(skipList, entry["url"], "Skipped Saving. Save data already exists when save overwrite is disabled.")
 
 def getActualFileName(infoDict: Dict[str, Any], ydlOpts: Dict[str, Any]) -> str:
     """Returns the actual file name of a video from its info dictionary."""
