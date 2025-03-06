@@ -478,13 +478,13 @@ def changeFileExt(filename: str, newExt: str) -> str:
     return filename[:len(filename)-i]+newExt
 
 # Tagging functions
-def addID3Tags(audioFilePath: str, data: Dict[str, str] = None) -> Tuple[str, bool]:
+def addID3Tags(audioFilePath: str, tagData: Dict[str, str] = None) -> Tuple[str, bool]:
     """
     Adds ID3 tags to the audio file.
     
     Args:
         audioFilePath (str): The path to the audio file.
-        data (Dict[str, str], optional): The data for the ID3 tags. Defaults to None.
+        tagData (Dict[str, str], optional): The data for the ID3 tags. Defaults to None.
     
     Returns:
         Tuple[str, bool]: A tuple containing the message and a boolean indicating whether the operation was successful.
@@ -494,13 +494,15 @@ def addID3Tags(audioFilePath: str, data: Dict[str, str] = None) -> Tuple[str, bo
         print(Fore.YELLOW+"Skipping ID3 tagging...")
         return (f"Skipping ID3 tagging. Audio file {repr(audioFilePath)} does not exist.", False)
 
-    if not data: data = {}
+    if not tagData: data = {}
+    else: data = tagData.copy() # copy to avoid modifying original
 
     try:
         audio = MP3(audioFilePath, ID3=ID3)
         coverInData = "thumbnail" in data
-        cover = data.copy().pop("thumbnail", None)
-        url = data.copy().pop("url", None)
+
+        cover = data.pop("thumbnail", None)
+        url = data.pop("url", None)
         for tag, value in data.items():
             if tag in ID3_ALIASES:
                 id3Tag = ID3_ALIASES[tag]
