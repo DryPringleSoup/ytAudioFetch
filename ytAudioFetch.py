@@ -288,7 +288,9 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
         skipReason += "Skipped Download (Audio file already exists) "
     
     if not shouldTag:
-        if skipPrint: skipPrint += ". "
+        if skipPrint:
+            skipPrint += ". "
+            skipReason += " | "
         if not audioFileExists:
             skipPrint = audioFilePath + " does not exist, tagging skipped"
             skipReason += "Skipped Tagging (Audio file does not exist) "
@@ -297,7 +299,9 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
             skipReason += "Skipped Tagging (Can't tag existing file) "
         
     if not shouldSave and not overwriteSave and audioSaveExists:
-        if skipPrint: skipPrint += ". "
+        if skipPrint:
+            skipPrint += ". "
+            skipReason += " | "
         skipPrint += "Cannot overwrite existing save data for "+audioFilePath+", saving skipped"
         skipReason += "Skipped Saving (Can't overwerite save file)"
 
