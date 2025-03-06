@@ -281,33 +281,27 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
             else: saveData[audioFilePath] = metadata
         
     # Skip message handling
-    skipPrint = skipReason = ""
+    skipMessages = ([], [])
 
     if not shouldDownload and not replacingFiles and audioFileExists:
-        skipPrint = audioFilePath + " already exists, downloading skipped"
-        skipReason += "Skipped Download (Audio file already exists) "
+        skipMessages[0].append("Downloading skipped ~ "+audioFilePath+" already exists")
+        skipMessages[1].append("Skipped Download (Audio file already exists)")
     
     if not shouldTag:
-        if skipPrint:
-            skipPrint += ". "
-            skipReason += " | "
         if not audioFileExists:
-            skipPrint = audioFilePath + " does not exist, tagging skipped"
-            skipReason += "Skipped Tagging (Audio file does not exist) "
+            skipMessages[0].append("Tagging skipped ~ "+audioFilePath+" does not exist")
+            skipMessages[1].append("Skipped Tagging (Audio file does not exist)")
         elif not tagExisting:
-            skipPrint += "Cannot tag existing file, tagging skipped"
-            skipReason += "Skipped Tagging (Can't tag existing file) "
+            skipMessages[0].append("Tagging skipped ~ Cannot tag existing file")
+            skipMessages[1].append("Skipped Tagging (Can't tag existing file)")
         
     if not shouldSave and not overwriteSave and audioSaveExists:
-        if skipPrint:
-            skipPrint += ". "
-            skipReason += " | "
-        skipPrint += "Cannot overwrite existing save data for "+audioFilePath+", saving skipped"
-        skipReason += "Skipped Saving (Can't overwerite save file)"
+        skipMessages[0].append("Saving skipped ~ Cannot overwrite existing save data for "+audioFilePath)
+        skipMessages[1].append("Skipped Saving (Can't overwerite save file)")
 
-    if skipPrint:
-        print(Fore.YELLOW + skipPrint)
-        if verboseSkipList: addToSkipList(skipList, entry["url"], skipReason)
+    if skipMessages[0]:
+        print(Fore.YELLOW + "\n".join(skipMessages[0]))
+        if verboseSkipList: addToSkipList(skipList, entry["url"], " | ".join(skipMessages[1]))
 
 def getActualFileName(infoDict: Dict[str, Any], ydlOpts: Dict[str, Any]) -> str:
     """Returns the actual file name of a video from its info dictionary."""
