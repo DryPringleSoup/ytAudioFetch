@@ -619,7 +619,7 @@ if __name__ == "__main__": # User inputs
         
         if tagging or saving:
             availableTags = list(ID3_ALIASES)
-            print("Avaliable tags:", *[f"\t{i+1}: {tag}" for i, tag in enumerate(availableTags)], sep="\n")
+            print("Available tags:", *[f"\t{i+1}: {tag}" for i, tag in enumerate(availableTags)], sep="\n")
             selectedTags = strInput("Enter the tags you want to change: ")
             selectedTags = {i for i in range(1,len(availableTags)+1) if str(i) in selectedTags}
             changeableTags = [ availableTags[i-1] for i in selectedTags ]
