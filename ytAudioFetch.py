@@ -650,6 +650,6 @@ if __name__ == "__main__": # User inputs
         if skipList: # Report skipped entries
             print()
             print(Fore.RED + f"The following {['videos', 'entries'][int(mode)]} had to be skipped:")
-            for thing, error in skipList: print(f"\t{thing}: {error}")
+            for thing, error in skipList: print(f"\t{thing}:\t{error}")
         
         break

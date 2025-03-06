@@ -108,7 +108,7 @@ class Worker(QtCore.QThread):
             else: raise ValueError(f"Invalid mode: {self.mode}")
 
             if skipList:
-                skipString = ''.join([f"\n\t{thing}: {error}" for thing, error in skipList])
+                skipString = ''.join([f"\n\t{thing}:\t{error}" for thing, error in skipList])
                 skiptype = ['videos', 'entries'][self.mode]
                 self.outputSignal.emit(f"The following {skiptype} had to be skipped:{skipString}")
             else: self.outputSignal.emit("Process completed without failure.")
