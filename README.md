@@ -109,7 +109,7 @@ Light [yt-dlp](https://github.com/yt-dlp/yt-dlp) gui that fetches the audio from
 ```bash
 python ytAudioFetch.py
 ```
-```bash
+```
 URL or JSON mode? (0 or 1): 0
 Operations:
         d: Download audio       t: Tag audio    s: save tags
