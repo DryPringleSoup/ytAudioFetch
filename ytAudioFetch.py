@@ -264,19 +264,29 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
 
     audioFileExists = os.path.exists(audioFilePath)
     shouldTag = shouldTag and audioFileExists
+
+    skipReason = ""
+    if not shouldTag:
+        if not audioFileExists:
+            print(Fore.YELLOW + audioFilePath + " does not exist, tagging skipped")
+            skipReason += "Skipped Tagging (Audio file does not exist) "
+        elif not tagExisting:
+            print(Fore.YELLOW + "Cannot tag existing file, tagging skipped")
+            skipReason += "Skipped Tagging (Can't tag existing file) "
+        
+    if not shouldSave and not overwriteSave and audioSaveExists:
+        print(Fore.YELLOW + audioFilePath + " does not exist, saving skipped")
+        skipReason += "Skipped Saving (Can't overwerite save file)"
     
     if shouldTag or shouldSave:
         print(Fore.GREEN + "Parsing entry data...")
         metadata = parseEntryData(entry, changeableTags)
-    
+
         if shouldTag:
             print(Fore.GREEN + "Adding tags to:", audioFilePath)
             result, wasTagged = addID3Tags(audioFilePath, metadata)
             if wasTagged: print(Fore.GREEN + audioFilePath + " has been tagged")
             elif verboseSkipList: addToSkipList(skipList, entry["url"], result)
-        elif not audioFileExists:
-            print(Fore.YELLOW + audioFilePath + " does not exist, skipping...")
-            if verboseSkipList: addToSkipList(skipList, entry["url"], "Skipped Tagging. Audio file does not exist.")
         
         if shouldSave:
             print(Fore.GREEN + ("Overwriting save" if audioSaveExists else "Saving initial") + " data...")
@@ -285,9 +295,8 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
             if audioFilePath in saveData:
                 if overwriteSave: saveData[audioFilePath].update(metadata)
             else: saveData[audioFilePath] = metadata
-        elif not overwriteSave and audioSaveExists:  
-            print(Fore.YELLOW + "Cannot overwrite existing save data, skipping...")
-            if verboseSkipList: addToSkipList(skipList, entry["url"], "Skipped Saving. Save data already exists when save overwrite is disabled.")
+    
+    if skipReason: addToSkipList(skipList, entry["url"], skipReason)
 
 def getActualFileName(infoDict: Dict[str, Any], ydlOpts: Dict[str, Any]) -> str:
     """Returns the actual file name of a video from its info dictionary."""
