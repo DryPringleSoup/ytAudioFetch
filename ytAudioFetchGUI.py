@@ -1,4 +1,4 @@
-import sys, io, re, os
+import sys, re, os
 from functools import partial
 from PyQt5 import QtWidgets, QtCore, QtGui
 from colorama import Fore
