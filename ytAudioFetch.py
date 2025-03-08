@@ -660,7 +660,7 @@ if __name__ == "__main__": # User inputs
             "tagging": tagging,
             "saving": saving,
             "replacingFiles": boolInput("Replace existing files? (y/n): ") if downloading else False,
-            "tagExisting": boolInput("tag existing files? (y/n): ") if mode == "1" and tagging else False,
+            "tagExisting": boolInput("tag existing files? (y/n): ") if mode == "0" and tagging else False,
             "changeableTags": changeableTags,
             "overwriteSave": boolInput("Overwrite data in save file? (y/n): ") if saving else False,
             "verboseSkipList": boolInput("Verbose skip list (show all operations skipped)? (y/n): ")

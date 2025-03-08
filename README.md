@@ -126,6 +126,24 @@ Enter the YouTube playlist/video URL: https://www.youtube.com/playlist?list=PLUu
 Enter the directory to save the MP3 files: ~/Music
 Enter the path of the JSON save file: ~/ytAudioFetchSave.json
 Replace existing files? (y/n): y
+tag existing files? (y/n): y
 Overwrite data in save file? (y/n): y
+Verbose skip list (show all operations skipped)? (y/n): y
+```
+```
+URL or JSON mode? (0 or 1): 1
+Operations:
+        d: Download audio       t: Tag audio
+Include the letters for each of operation you want to perform: dt
+Available tags:
+        1: url
+        2: title
+        3: artist
+        4: uploader
+        5: thumbnail
+        6: description
+Enter the tags you want to change: 123456
+Enter the YouTube playlist/video URL: ~/ytAudioFetchSave.json
+Replace existing files? (y/n): y
 Verbose skip list (show all operations skipped)? (y/n): y
 ```
