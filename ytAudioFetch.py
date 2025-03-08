@@ -300,8 +300,9 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
         skipMessages[0].append("Saving skipped ~ Cannot overwrite existing save data for "+audioFilePath)
         if verboseSkipList: skipMessages[1].append("Skipped Saving (Can't overwerite save file)")
     
-    if skipMessages[0]: print(Fore.YELLOW + "\n".join(skipMessages[0]))
-    if verboseSkipList: addToSkipList(skipList, entry["url"], " | ".join(skipMessages[1]))
+    if skipMessages[0]:
+        print(Fore.YELLOW + "\n".join(skipMessages[0]))
+        if verboseSkipList: addToSkipList(skipList, entry["url"], " | ".join(skipMessages[1]))
 
 def getActualFileName(infoDict: Dict[str, Any], ydlOpts: Dict[str, Any]) -> str:
     """Returns the actual file name of a video from its info dictionary."""
@@ -465,6 +466,22 @@ def processEntryJSON(audioFilePath: str, data: Dict[str, Dict[str, str]], ydlOpt
         result, wasTagged = addID3Tags(audioFilePath, metadata)
         if wasTagged: print(Fore.GREEN + audioFilePath + " has been fully downloaded and tagged")
         elif verboseSkipList: addToSkipList(skipList, audioFilePath, result)
+
+    # Skip message handling
+
+    skipMessages = ([], []) # first for console message and second for skip list
+
+    if not shouldDownload and not replacingFiles and audioFileExists:
+        skipMessages[0].append("Downloading skipped ~ "+audioFilePath+" already exists")
+        if verboseSkipList: skipMessages[1].append("Skipped Download (Audio file already exists)")
+    
+    if not shouldTag and not audioFileExists:
+        skipMessages[0].append("Tagging skipped ~ "+audioFilePath+" does not exist")
+        if verboseSkipList: skipMessages[1].append("Skipped Tagging (Audio file does not exist)")
+    
+    if skipMessages[0]:
+        print(Fore.YELLOW + "\n".join(skipMessages[0]))
+        if verboseSkipList: addToSkipList(skipList, audioFilePath, " | ".join(skipMessages[1]))
 
 # Other general helper functions
 def addToSkipList(skipList: List[Tuple[str, str]], ytURL: str, error: Union[yt_dlp.utils.DownloadError, str]):
