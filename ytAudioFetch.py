@@ -284,11 +284,11 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
     
     skipMessages = ([], []) # first for console message and second for skip list
 
-    if not shouldDownload and not replacingFiles and audioFileExists:
+    if downloading and not shouldDownload and not replacingFiles and audioFileExists:
         skipMessages[0].append("Downloading skipped ~ "+audioFilePath+" already exists")
         if verboseSkipList: skipMessages[1].append("Skipped Download (Audio file already exists)")
     
-    if not shouldTag:
+    if tagging and not shouldTag:
         if not audioFileExists:
             skipMessages[0].append("Tagging skipped ~ "+audioFilePath+" does not exist")
             if verboseSkipList: skipMessages[1].append("Skipped Tagging (Audio file does not exist)")
@@ -296,7 +296,7 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
             skipMessages[0].append("Tagging skipped ~ Cannot tag existing file")
             if verboseSkipList: skipMessages[1].append("Skipped Tagging (Can't tag existing file)")
         
-    if not shouldSave and not overwriteSave and audioSaveExists:
+    if saving and not shouldSave and not overwriteSave and audioSaveExists:
         skipMessages[0].append("Saving skipped ~ Cannot overwrite existing save data for "+audioFilePath)
         if verboseSkipList: skipMessages[1].append("Skipped Saving (Can't overwerite save file)")
     
@@ -471,11 +471,11 @@ def processEntryJSON(audioFilePath: str, data: Dict[str, Dict[str, str]], ydlOpt
 
     skipMessages = ([], []) # first for console message and second for skip list
 
-    if not shouldDownload and not replacingFiles and audioFileExists:
+    if downloading and not shouldDownload and not replacingFiles and audioFileExists:
         skipMessages[0].append("Downloading skipped ~ "+audioFilePath+" already exists")
         if verboseSkipList: skipMessages[1].append("Skipped Download (Audio file already exists)")
     
-    if not shouldTag and not audioFileExists:
+    if tagging and not shouldTag and not audioFileExists:
         skipMessages[0].append("Tagging skipped ~ "+audioFilePath+" does not exist")
         if verboseSkipList: skipMessages[1].append("Skipped Tagging (Audio file does not exist)")
     
