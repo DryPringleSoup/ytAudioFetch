@@ -70,6 +70,7 @@ def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
     
     # Extract basic info (with retry logic)
     info = extractBasicInfo(ytURL, outputDir, skipList)
+    if skipList: return skipList # This trigger only when skipList is not empty -> extraction of anythng failed -> no need to continue
     numVideos = len(info.get('entries', []))
     
     # Setup ydl options for verbose download/tagging operations
@@ -77,7 +78,16 @@ def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
     ydlOpts["outtmpl"] = os.path.join(outputDir, ydlOpts["outtmpl"])
     
     # Load save data
-    if saving: saveData = loadSaveData(saveFilePath)
+    if saving:
+        errorType, saveData = loadSaveData(saveFilePath)
+
+        if errorType == 1:
+            oldSaveFilePath = saveFilePath
+            saveBase = os.path.basename(oldSaveFilePath)
+            saveFilePath = os.path.join(os.path.dirname(oldSaveFilePath), "YTAF-NEW-"+saveBase)
+            print(Fore.YELLOW + "Bad save file detected, data will now be saved to:", saveFilePath)
+            addToSkipList(skipList, oldSaveFilePath, f"Error loading save file so fallback to: {saveFilePath}. Check if orginal JSON file is valid/formatted correctly.")
+        
     else: saveData = {}
     
     print()
@@ -125,16 +135,6 @@ def validateAndPrepareArgsURL(arguments: Dict) -> Tuple[str, str, str, bool, boo
     os.makedirs(outputDir, exist_ok=True)
     
     return ytURL, outputDir, saveFilePath, downloading, tagging, saving, replacingFiles, tagExisting, changeableTags, overwriteSave, verboseSkipList
-
-def loadSaveData(saveFilePath: str) -> Dict[str, Dict[str, str]]:
-    """Loads save data from a JSON file."""
-    print(Fore.BLUE + "Loading save data from " + saveFilePath)
-    try:
-        with open(saveFilePath, "r") as saveFile: return json.load(saveFile)
-    except:
-        print("Error loading JSON file. Initializing with empty data.")
-        return {}
-    finally: print()
 
 def extractBasicInfo(ytURL: str, outputDir: str, skipList: List[Tuple[str, str]]) -> Dict:
     """
@@ -354,16 +354,31 @@ def ytafJSON(arguments: Dict[str, Any]) -> List[Tuple[str, str]]:
             replacingFiles (bool, optional): Whether to replace the audio if it already exists. Defaults to False.
             changeableTags (List[str], optional): A list of tags that can be changed. Defaults to None which means all tags can be changed.
             verboseSkipList (bool, optional): Whether to print all operations that were skipped or just downloads. Defaults to False.
+    Returns:
+        List[Tuple[str, str]]: A list of tuples containing the audio file path and the reason it was skipped.
     """
     # Validate and prepare input arguments
     params = validateAndPrepareArgsJSON(arguments)
     if params is None: return []
     ( saveFilePath, downloading, tagging, replacingFiles, changeableTags, verboseSkipList ) = params
 
-    # Load save data
-    saveData = loadSaveData(saveFilePath)
-    entries = len(saveData)
     skipList = []
+
+    # Load save data
+    errorType, saveData = loadSaveData(saveFilePath)
+
+    if errorType != -1:
+
+        if errorType == 0:
+            print(Fore.YELLOW + "Save file does not exist, extraction not possible.")
+            addToSkipList(skipList, saveFilePath, "Cannot extract from non-existent save file")
+        elif errorType == 1:
+            print(Fore.YELLOW + "Badly formatted or invalid save file, extraction not possible.")
+            addToSkipList(skipList, saveFilePath, "Badly formatted or invalid save file")
+        
+        return skipList
+
+    entries = len(saveData)
 
     # Setup ydl options for verbose download/tagging operations
     ydlVerbose = YDL_VERBOSE_EXTRACTION_OPTS.copy()
@@ -484,7 +499,7 @@ def processEntryJSON(audioFilePath: str, data: Dict[str, Dict[str, str]], ydlOpt
         if verboseSkipList: addToSkipList(skipList, audioFilePath, " | ".join(skipMessages[1]))
 
 # Other general helper functions
-def addToSkipList(skipList: List[Tuple[str, str]], ytURL: str, error: Union[yt_dlp.utils.DownloadError, str]):
+def addToSkipList(skipList: List[Tuple[str, str]], ytURL: str, error: Union[yt_dlp.utils.DownloadError, str]) -> None:
     """Adds an entry to the skip list."""
     if isinstance(error, yt_dlp.utils.DownloadError):
         error = str(error).split(": ")[-1]
@@ -504,16 +519,39 @@ def addToSkipList(skipList: List[Tuple[str, str]], ytURL: str, error: Union[yt_d
         if error == "Forbidden": error += ". Check your internet and/or try to download again."
     skipList.append((ytURL, error))
 
+def loadSaveData(saveFilePath: str) -> Tuple[int, Dict[str, Dict[str, str]]]:
+    """
+    Loads save data from a JSON file
+    
+    Args:
+        saveFilePath (str): The path to the save file to be loaded. 
+    Returns:
+        Tuple[int, Dict[str, Dict[str, str]]]: A tuple containing the error type (-1: no error, 0: no save file, 1: bad save file)and the save data in json.
+    """
+    print(Fore.BLUE + "Loading save data from " + saveFilePath)
+    try:
+
+        if not os.path.exists(saveFilePath):
+            print(Fore.YELLOW + "Save file does not exist, initializing with empty data.")
+            return 0, {}
+        
+        with open(saveFilePath, "r") as saveFile: return -1, json.load(saveFile)
+
+    except:
+        print(Fore.RED + "Error loading JSON file. Initializing with empty data.")
+        return 1, {}
+
+    finally: print()
+
 def isConnectionError(error: yt_dlp.utils.DownloadError) -> bool:
     """Checks if the given error is a connection error."""
     error = str(error)
     return any(phrase in error for phrase in ["Failed to resolve", "Failed to extract"])
 
-def changeFileExt(filename: str, newExt: str) -> str:
+def changeFileExt(filePath: str, newExt: str) -> str:
     """Changes the file extension of the given filename."""
-    for i, char in enumerate(filename[::-1]):
-        if char == ".": break
-    return filename[:len(filename)-i]+newExt
+    base, _ = os.path.splitext(os.path.basename(filePath))
+    return os.path.join(os.path.dirname(filePath), base+"."+newExt)
 
 # Tagging functions
 def addID3Tags(audioFilePath: str, tagData: Dict[str, str] = None) -> Tuple[str, bool]:
