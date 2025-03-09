@@ -1,5 +1,14 @@
-# ytAudioFetch <img src="ytaf.svg" width="100" height="100" align="right">
-Light [yt-dlp](https://github.com/yt-dlp/yt-dlp) gui that fetches the audio from any youtube playlist, video, or short while tagging it with any of the tags you can choose.
+<table style="width: 100%; border-collapse: collapse;">
+  <tr>
+    <td style="vertical-align: top;">
+      <h1>ytAudioFetch</h1>
+      <p>Light <a href="https://github.com/yt-dlp/yt-dlp">yt-dlp</a> GUI that fetches the audio from any YouTube playlist, video, or short while tagging it with any of the tags you can choose.</p>
+    </td>
+    <td style="text-align: right; vertical-align: top; width: 120px;">
+      <img src="ytaf.svg" width="100" height="100">
+    </td>
+  </tr>
+</table>
 
 ## Installation
 ### Command Line
