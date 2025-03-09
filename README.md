@@ -57,7 +57,7 @@ Light [yt-dlp](https://github.com/yt-dlp/yt-dlp) gui that fetches the audio from
 
 1. **URL Mode** - This is the main mode, it allows to download any playlist's or video's audio
 2. **JSON Mode** *(More info below next image)* - Using your own custom JSON file, you can put in your own tag data and have all the specified files be tagged
-3. **Youtube URL to extract from** - playlist or single videos (this includes shorts) are valid
+3. **Youtube URL to extract from** - non-private playlist or single videos (this includes shorts) are valid
 4. **Directory/Folder to save to** - you can either manually type it or press the folder icon and browse to find it
 5. **Advanced options toggle** - Hides and unhides advanced options
 6. **Dark Mode activator** - changes the theme to dark mode (see last image for previews)
@@ -72,7 +72,7 @@ Light [yt-dlp](https://github.com/yt-dlp/yt-dlp) gui that fetches the audio from
 15. ****Artist tag** - gets saved to the TPE1 (artist) ID3 tag
 17. ***Thumbnail tag** - gets saved to the APIC (picture) ID3 tag
 18. ***Description tag** - gets saved to COMM (comment) ID3 tag
-19. **Save file path** - where to save the JSON file
+19. **Save file path** - where to save the JSON file, you can either manually type it or press the folder icon and browse to find it
 20. **Start button** - begin the script in the current mode
 21. **Status feed** - updates as the script runs; shows the current video being processed and, when finished, the list of skipped operations
 22. **Output feed** - updates as the script runs; shows the console output from the script
@@ -83,13 +83,13 @@ Light [yt-dlp](https://github.com/yt-dlp/yt-dlp) gui that fetches the audio from
 
 <img src="JSONmodeLabelled.png" width="700" alt="labelled json mode">
 
-1. **Json file to extract from**
+1. **Json file to extract from** - you can either manually type it or press the file icon and browse to find it
    - json files should be formatted like this
     ```json
     {
         "...": { },
         "[file path to mp3]": {
-            "url": "[youtube URL (playlist URLs don't work)]",
+            "url": "[non-private youtube URL (playlist URLs don't work)]",
             "title": "[track title]",
             "artist": "[artist(s)]",
             "uploader": "[uploader]",

@@ -294,7 +294,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.darkModeToggle.clicked.connect(self.toggleThemeMode)
         self.optionsLayout.addWidget(self.darkModeToggle)
 
-        self.verboseSkipListSwitch = StrikableCheckBox("show ALL operations that were skipped", self)
+        self.verboseSkipListSwitch = StrikableCheckBox("show ALL operations that were skipped (false = show only skipped downloads)", self)
         self.optionsLayout.addWidget(self.verboseSkipListSwitch)
 
         self.initOperationsCheckList() # checks for downloading, tagging, and saving
