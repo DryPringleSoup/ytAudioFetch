@@ -648,23 +648,31 @@ def downloadThumbnail(thumbnailURL: str) -> str:
     Returns:
         str: The filename of the downloaded thumbnail.
     """
-    response = requests.get(thumbnailURL)
-    if response.status_code == 200:
-        print(Fore.GREEN+"Successfully downloaded thumbnail:", thumbnailURL)
-        cover = "temp-YTAF-"+thumbnailURL.split("/")[-1]
-        print("Temp Thumbnail Filename:", cover)
-        with open(cover, "wb") as f: f.write(response.content)
+    try:
+        response = requests.get(thumbnailURL, stream=True)
+        response.raise_for_status()
 
+        tempBaseName = "temp-YTAF-cover-download"
+        mimeType = response.headers.get("Content-Type", "")
+        cover = tempBaseName+mimetypes.guess_extension(mimeType, strict=False)
+        with open(cover, "wb" ) as file: # stream=True makes it download in chunks which uses less memory for bigger images
+            for chunk in response.iter_content(1024): file.write(chunk)
+
+        print(Fore.GREEN+"Successfully downloaded thumbnail:", thumbnailURL)
+        print("Temp Thumbnail Filename: ", cover)
+        
         # Covers don't appear correctly in other formats
-        if mimetypes.guess_type(cover)[0] != "image/jpeg": #convert cover image to jpeg
-            newcover = changeFileExt(cover, "jpg")
+        if mimeType != "image/jpeg": #convert cover image to jpeg
+            newcover = tempBaseName+".jpg"
             convertToJpg(cover, newcover)
             print(Fore.YELLOW+"Deleting old cover image:", cover)
             os.remove(cover)
             cover = newcover
+        
         return cover
-    else:
-        print(Fore.RED+"Failed to download thumbnail:", thumbnailURL)
+
+    except requests.exceptions.RequestException as e:
+        print(Fore.RED+"Failed to download thumbnail ({thumbnailURL}): ", e)
         return "NoCover.jpg"
 
 # Input validation
