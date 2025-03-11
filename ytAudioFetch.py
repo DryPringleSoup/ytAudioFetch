@@ -286,7 +286,7 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
 
     if downloading and not shouldDownload and not replacingFiles and audioFileExists:
         skipMessages[0].append("Downloading skipped ~ "+audioFilePath+" already exists")
-        if verboseSkipList: skipMessages[1].append("Skipped Download (Audio file already exists)")
+        if verboseSkipList: skipMessages[1].append("Skipped Downloading (Audio file already exists)")
     
     if tagging and not shouldTag:
         if not audioFileExists:
@@ -409,7 +409,7 @@ def validateAndPrepareArgsJSON(arguments: Dict) -> Tuple[str, bool, bool, bool, 
     
     changeableTags = arguments.get("changeableTags", list(ID3_ALIASES))
 
-    if not (downloading or changeableTags): # Since this passed previous check, if downloading is false either tagging or saving must be true
+    if not (downloading or changeableTags): # Since this passed previous check, downloading or tagging must be true so, if downloading is false, then tagging must be true
         print(Fore.YELLOW + "Tagging requires at least one tag to be changeable.")
 
     saveFilePath = os.path.expanduser(saveFilePath)
@@ -445,7 +445,7 @@ def processEntryJSON(audioFilePath: str, data: Dict[str, Dict[str, str]], ydlOpt
 
     if shouldDownload:
         ydlOpts["outtmpl"] = changeFileExt(audioFilePath, "%(ext)s")
-        url = data.get("url")
+        url = data.get("url").strip()
         if url:
             print(Fore.GREEN + f"Downloading {data['url']} to {audioFilePath}")
             with yt_dlp.YoutubeDL(ydlOpts) as ydl:
@@ -477,6 +477,7 @@ def processEntryJSON(audioFilePath: str, data: Dict[str, Dict[str, str]], ydlOpt
     shouldTag = tagging and changeableTags and audioFileExists
 
     if shouldTag:
+        # for a tag to be in the metadata it has to be in changeableTags and in data
         metadata = { key: data.get(key) for key in changeableTags if data.get(key) }
         result, wasTagged = addID3Tags(audioFilePath, metadata)
         if wasTagged: print(Fore.GREEN + audioFilePath + " has been fully downloaded and tagged")
@@ -488,7 +489,7 @@ def processEntryJSON(audioFilePath: str, data: Dict[str, Dict[str, str]], ydlOpt
 
     if downloading and not shouldDownload and not replacingFiles and audioFileExists:
         skipMessages[0].append("Downloading skipped ~ "+audioFilePath+" already exists")
-        if verboseSkipList: skipMessages[1].append("Skipped Download (Audio file already exists)")
+        if verboseSkipList: skipMessages[1].append("Skipped Downloading (Audio file already exists)")
     
     if tagging and not shouldTag and not audioFileExists:
         skipMessages[0].append("Tagging skipped ~ "+audioFilePath+" does not exist")
@@ -553,6 +554,12 @@ def changeFileExt(filePath: str, newExt: str) -> str:
     base, _ = os.path.splitext(os.path.basename(filePath))
     return os.path.join(os.path.dirname(filePath), base+"."+newExt)
 
+def isLink(string: str) -> bool:
+    """Checks if the given link is a valid URL."""
+    # pattern: "[starts with http:// or https:// (ignoring case)][contains at least one non-whitespace character after the protocol]"
+    linkPattern = re.compile(r'^https?://\S+$', re.IGNORECASE)
+    return bool(linkPattern.match(string))
+
 # Tagging functions
 def addID3Tags(audioFilePath: str, tagData: Dict[str, str] = None) -> Tuple[str, bool]:
     """
@@ -569,59 +576,80 @@ def addID3Tags(audioFilePath: str, tagData: Dict[str, str] = None) -> Tuple[str,
         print(Fore.RED+"Warning!","Audio file does not exist:", audioFilePath)
         print(Fore.YELLOW+"Skipping ID3 tagging...")
         return (f"Skipping ID3 tagging. Audio file {repr(audioFilePath)} does not exist.", False)
-
+    
     if tagData: data = tagData.copy() # copy to avoid modifying original
     else: data = {}
+    
+    skippedTags = [] # list of skipped tags
 
     try:
         audio = MP3(audioFilePath, ID3=ID3)
-        coverInData = "thumbnail" in data
 
-        cover = data.pop("thumbnail", None)
-        url = data.pop("url", None)
+        coverSource = data.pop("thumbnail", None).strip()
+        url = data.pop("url", None).strip()
         for tag, value in data.items():
             if tag in ID3_ALIASES:
                 id3Tag = ID3_ALIASES[tag]
                 tagText = value or f"[No {tag}]"
                 print(Fore.MAGENTA+f"Adding {tag} tag:", tagText)
-                audio.tags.add(id3Tag(encoding=3, text=[tagText]))
-            else: print(Fore.YELLOW+"Warning!","Unknown tag:", tag)
+                try: audio.tags.add(id3Tag(encoding=3, text=[tagText]))
+                except Exception as e: addToSkippedTags(skippedTags,  f"There was an error adding the {tag} tag ({tagText}): {e}")
+            else: addToSkippedTags(skippedTags, f"Unknown tag: {tag}")
 
         if url:
             print(Fore.MAGENTA+"Adding URL:", url)
-            audio.tags.add(WOAS(encoding=3, url=url))
+            try: audio.tags.add(WOAS(encoding=3, url=url))
+            except: addToSkippedTags(skippedTags, f"There was an error adding the URL tag. Value: {url}")
 
         # Cover path from either online or local source
-        if coverInData:
-            if cover:
-                isLink = re.match(r"^https?://", cover)
-                if isLink: cover = downloadThumbnail(cover)
-                elif not os.path.exists(cover): cover = "NoCover.jpg"
-                elif mimetypes.guess_type(cover)[0] != "image/jpeg":
-                    newCover = changeFileExt(cover, "jpg")
-                    convertToJpg(cover, newCover)
-                    cover = newCover
-            else: cover = "NoCover.jpg"
-
-            print(Fore.MAGENTA+"Adding cover image:", cover)
-            with open(cover, "rb") as img:
-                audio.tags.add(APIC(
-                    encoding=3,
-                    mime='image/jpeg',
-                    type=3, desc=u'Cover',
-                    data=img.read()
-                ))
-            
-            if cover != "NoCover.jpg":
-                os.remove(cover)
-                print(Fore.YELLOW+"Deleted Temp Thumbnail:", cover)
+        if coverSource is not None: addCoverToAudio(coverSource, audio, skippedTags)
         
         audio.save()
         print(f"Tags added to {audioFilePath}")
-        return ("success", True)
+        return (f"Skipped tag(s) ( {' | '.join(skippedTags)} )", not bool(skippedTags))
+    
     except Exception as e:
         print(Fore.RED+f"Error adding tags to {audioFilePath}:", e)
         return (f"Tagging error with {repr(audioFilePath)} ~ "+str(e), False)
+
+def addToSkippedTags(skippedTags: List[str], reason: str, alert: str = Fore.YELLOW+"Warning!") -> None:
+    """prints tagging error and adds it to the skipped tags list."""
+    print(alert, reason)
+    skippedTags.append(reason)
+
+def addCoverToAudio(coverSource: str, audio: MP3, skippedTags: List[str]) -> Tuple[str, bool]:
+    """Given a source for the cover image (file path or link), adds it to the audio file."""
+    if coverSource:
+        sourceIsLink = isLink(coverSource)
+        if sourceIsLink:
+            
+            try: coverFileName = downloadThumbnail(coverSource)
+            except requests.exceptions.RequestException as e:
+                addToSkippedTags(skippedTags, f"Failed to download thumbnail ({coverSource}): {e}", alert=Fore.RED+"Download error!")
+                coverFileName = "NoCover.jpg"
+            
+        elif not os.path.exists(coverSource): coverFileName = "NoCover.jpg"
+        elif mimetypes.guess_type(coverSource)[0] != "image/jpeg":
+            coverFileName = changeFileExt(coverSource, "jpg")
+            convertToJpg(coverSource, coverFileName)
+    else:
+        coverFileName = "NoCover.jpg"
+        addToSkippedTags(skippedTags, "No cover image source provided, falling back with NoCover.jpg")
+    coverExists = coverFileName != "NoCover.jpg"
+
+    print(Fore.MAGENTA+"Adding cover image:", coverFileName if coverExists else coverFileName)
+    try:
+        audio.tags.add(APIC(
+            encoding=3,
+            mime='image/jpeg',
+            type=3, desc=f"Cover source: {coverSource}" if coverExists else "Couldn't find cover image",
+            data=readImage(coverFileName)
+        ))
+    except Exception as e: addToSkippedTags(skippedTags, f"There was an error adding the cover image ({coverSource}): {e}")
+    
+    if coverExists and sourceIsLink:
+        os.remove(coverFileName)
+        print(Fore.YELLOW+"Deleted Temp Thumbnail:", coverFileName)
 
 def convertToJpg(inputImagePath: str, outputImagePath: str) -> None:
     """
@@ -648,32 +676,30 @@ def downloadThumbnail(thumbnailURL: str) -> str:
     Returns:
         str: The filename of the downloaded thumbnail.
     """
-    try:
-        response = requests.get(thumbnailURL, stream=True)
-        response.raise_for_status()
+    response = requests.get(thumbnailURL, stream=True)
+    response.raise_for_status()
 
-        tempBaseName = "temp-YTAF-cover-download"
-        mimeType = response.headers.get("Content-Type", "")
-        cover = tempBaseName+mimetypes.guess_extension(mimeType, strict=False)
-        with open(cover, "wb" ) as file: # stream=True makes it download in chunks which uses less memory for bigger images
-            for chunk in response.iter_content(1024): file.write(chunk)
+    tempBaseName = "temp-YTAF-cover-download"
+    mimeType = response.headers.get("Content-Type", "")
+    cover = tempBaseName+mimetypes.guess_extension(mimeType, strict=False)
+    with open(cover, "wb" ) as file: # stream=True makes it download in chunks which uses less memory for bigger images
+        for chunk in response.iter_content(1024): file.write(chunk)
 
-        print(Fore.GREEN+"Successfully downloaded thumbnail:", thumbnailURL)
-        print("Temp Thumbnail Filename: ", cover)
-        
-        # Covers don't appear correctly in other formats
-        if mimeType != "image/jpeg": #convert cover image to jpeg
-            newcover = tempBaseName+".jpg"
-            convertToJpg(cover, newcover)
-            print(Fore.YELLOW+"Deleting old cover image:", cover)
-            os.remove(cover)
-            cover = newcover
-        
-        return cover
+    print(Fore.GREEN+"Successfully downloaded thumbnail:", thumbnailURL)
+    print("Temp Thumbnail Filename: ", cover)
+    
+    # Covers don't appear correctly in other formats
+    if mimeType != "image/jpeg": #convert cover image to jpeg
+        newcover = tempBaseName+".jpg"
+        convertToJpg(cover, newcover)
+        print(Fore.YELLOW+"Deleting old cover image:", cover)
+        os.remove(cover)
+        cover = newcover
+    
+    return cover
 
-    except requests.exceptions.RequestException as e:
-        print(Fore.RED+"Failed to download thumbnail ({thumbnailURL}): ", e)
-        return "NoCover.jpg"
+def readImage(imagePath: str): #does what it says on the tin
+    with open(imagePath, "rb") as img: return img.read()
 
 # Input validation
 def strInput(inputText: str) -> str:
