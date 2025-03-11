@@ -499,67 +499,6 @@ def processEntryJSON(audioFilePath: str, data: Dict[str, Dict[str, str]], ydlOpt
         print(Fore.YELLOW + "\n".join(skipMessages[0]))
         if verboseSkipList: addToSkipList(skipList, audioFilePath, " | ".join(skipMessages[1]))
 
-# Other general helper functions
-def addToSkipList(skipList: List[Tuple[str, str]], ytURL: str, error: Union[yt_dlp.utils.DownloadError, str]) -> None:
-    """Adds an entry to the skip list."""
-    if isinstance(error, yt_dlp.utils.DownloadError):
-        error = str(error).split(": ")[-1]
-        tldr = [
-            ("confirm your age", "Age Restriction"),
-            ("Private video", "Private video"),
-            ("Bad Request", "Bad Playlist URL"),
-            ("is not a valid URL", "Invalid URL"),
-            ("Failed to resolve", "Failed connection to YouTube"),
-            ("Failed to extract", "Failed to extract any player response; possible connection issue")
-        ]
-        for phrase, reason in tldr:
-            if phrase in error:
-                error = reason
-                break
-        if error == "Video unavailable": error += ". Link likely points to non-existent or unlisted video."
-        if error == "Forbidden": error += ". Check your internet and/or try to download again."
-    skipList.append((ytURL, error))
-
-def loadSaveData(saveFilePath: str) -> Tuple[int, Dict[str, Dict[str, str]]]:
-    """
-    Loads save data from a JSON file
-    
-    Args:
-        saveFilePath (str): The path to the save file to be loaded. 
-    Returns:
-        Tuple[int, Dict[str, Dict[str, str]]]: A tuple containing the error type (-1: no error, 0: no save file, 1: bad save file)and the save data in json.
-    """
-    print(Fore.BLUE + "Loading save data from " + saveFilePath)
-    try:
-
-        if not os.path.exists(saveFilePath):
-            print(Fore.YELLOW + "Save file does not exist, initializing with empty data.")
-            return 0, {}
-        
-        with open(saveFilePath, "r") as saveFile: return -1, json.load(saveFile)
-
-    except:
-        print(Fore.RED + "Error loading JSON file. Initializing with empty data.")
-        return 1, {}
-
-    finally: print()
-
-def isConnectionError(error: yt_dlp.utils.DownloadError) -> bool:
-    """Checks if the given error is a connection error."""
-    error = str(error)
-    return any(phrase in error for phrase in ["Failed to resolve", "Failed to extract"])
-
-def changeFileExt(filePath: str, newExt: str) -> str:
-    """Changes the file extension of the given filename."""
-    base, _ = os.path.splitext(os.path.basename(filePath))
-    return os.path.join(os.path.dirname(filePath), base+"."+newExt)
-
-def isLink(string: str) -> bool:
-    """Checks if the given link is a valid URL."""
-    # pattern: "[starts with http:// or https:// (ignoring case)][contains at least one non-whitespace character after the protocol]"
-    linkPattern = re.compile(r'^https?://\S+$', re.IGNORECASE)
-    return bool(linkPattern.match(string))
-
 # Tagging functions
 def addID3Tags(audioFilePath: str, tagData: Dict[str, str] = None) -> Tuple[str, bool]:
     """
@@ -700,6 +639,67 @@ def downloadThumbnail(thumbnailURL: str) -> str:
 
 def readImage(imagePath: str): #does what it says on the tin
     with open(imagePath, "rb") as img: return img.read()
+
+# Other general helper functions
+def addToSkipList(skipList: List[Tuple[str, str]], ytURL: str, error: Union[yt_dlp.utils.DownloadError, str]) -> None:
+    """Adds an entry to the skip list."""
+    if isinstance(error, yt_dlp.utils.DownloadError):
+        error = str(error).split(": ")[-1]
+        tldr = [
+            ("confirm your age", "Age Restriction"),
+            ("Private video", "Private video"),
+            ("Bad Request", "Bad Playlist URL"),
+            ("is not a valid URL", "Invalid URL"),
+            ("Failed to resolve", "Failed connection to YouTube"),
+            ("Failed to extract", "Failed to extract any player response; possible connection issue")
+        ]
+        for phrase, reason in tldr:
+            if phrase in error:
+                error = reason
+                break
+        if error == "Video unavailable": error += ". Link likely points to non-existent or unlisted video."
+        if error == "Forbidden": error += ". Check your internet and/or try to download again."
+    skipList.append((ytURL, error))
+
+def loadSaveData(saveFilePath: str) -> Tuple[int, Dict[str, Dict[str, str]]]:
+    """
+    Loads save data from a JSON file
+    
+    Args:
+        saveFilePath (str): The path to the save file to be loaded. 
+    Returns:
+        Tuple[int, Dict[str, Dict[str, str]]]: A tuple containing the error type (-1: no error, 0: no save file, 1: bad save file)and the save data in json.
+    """
+    print(Fore.BLUE + "Loading save data from " + saveFilePath)
+    try:
+
+        if not os.path.exists(saveFilePath):
+            print(Fore.YELLOW + "Save file does not exist, initializing with empty data.")
+            return 0, {}
+        
+        with open(saveFilePath, "r") as saveFile: return -1, json.load(saveFile)
+
+    except:
+        print(Fore.RED + "Error loading JSON file. Initializing with empty data.")
+        return 1, {}
+
+    finally: print()
+
+def isConnectionError(error: yt_dlp.utils.DownloadError) -> bool:
+    """Checks if the given error is a connection error."""
+    error = str(error)
+    return any(phrase in error for phrase in ["Failed to resolve", "Failed to extract"])
+
+def changeFileExt(filePath: str, newExt: str) -> str:
+    """Changes the file extension of the given filename."""
+    base, _ = os.path.splitext(os.path.basename(filePath))
+    return os.path.join(os.path.dirname(filePath), base+"."+newExt)
+
+def isLink(string: str) -> bool:
+    """Checks if the given link is a valid URL."""
+    # pattern: "[starts with http:// or https:// (ignoring case)][contains at least one non-whitespace character after the protocol]"
+    linkPattern = re.compile(r'^https?://\S+$', re.IGNORECASE)
+    return bool(linkPattern.match(string))
 
 # Input validation
 def strInput(inputText: str) -> str:
