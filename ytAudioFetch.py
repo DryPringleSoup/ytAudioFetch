@@ -524,8 +524,8 @@ def addID3Tags(audioFilePath: str, tagData: Dict[str, str] = None) -> Tuple[str,
     try:
         audio = MP3(audioFilePath, ID3=ID3)
 
-        coverSource = data.pop("thumbnail", None).strip()
-        url = data.pop("url", None).strip()
+        coverSource = data.pop("thumbnail", None)
+        url = data.pop("url", None)
         for tag, value in data.items():
             if tag in ID3_ALIASES:
                 id3Tag = ID3_ALIASES[tag]
@@ -536,12 +536,13 @@ def addID3Tags(audioFilePath: str, tagData: Dict[str, str] = None) -> Tuple[str,
             else: addToSkippedTags(skippedTags, f"Unknown tag: {tag}")
 
         if url:
+            url = url.strip()
             print(Fore.MAGENTA+"Adding URL:", url)
             try: audio.tags.add(WOAS(encoding=3, url=url))
             except: addToSkippedTags(skippedTags, f"There was an error adding the URL tag. Value: {url}")
 
         # Cover path from either online or local source
-        if coverSource is not None: addCoverToAudio(coverSource, audio, skippedTags)
+        if coverSource is not None: addCoverToAudio(coverSource.strip(), audio, skippedTags)
         
         audio.save()
         print(f"Tags added to {audioFilePath}")
