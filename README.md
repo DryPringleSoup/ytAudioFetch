@@ -12,17 +12,31 @@
 
 
 ## Installation
+### Download executable
+If you're on windows you can just download the executable from the [releases page](https://github.com/DryPringleSoup/ytAudioFetch/releases).
+
 ### Command Line
+0. Make sure you have [git](https://git-scm.com/), [python](https://www.python.org/), [pip](https://pip.pypa.io/en/stable/), and [ffmpeg](https://www.ffmpeg.org/) installed
+   - On Windows
+   ```bash
+   winget Git.Git python pip ffmpeg
+   ```
+
 1. Clone repository:
    ```bash
    git clone https://github.com/DryPringleSoup/ytAudioFetch.git
    ```
 
-2. Create virtual environment
+2. Enter into directory
+   ```bash
+   cd ytAudioFetch
+   ```
+
+3. Create virtual environment
    ```bash
    python -m venv ytafenv
    ```
-3. Activate environment
+4. Activate environment
   - On Windows
      ```bash
      ytafenv\Scripts\activate
@@ -32,12 +46,12 @@
      source ytafenv/bin/activate
      ```
 
-4. Install dependencies
+5. Install dependencies
    ```bash
    pip install -r requirements.txt
    ```
 
-5. Run GUI
+6. Run GUI
    ```bash
    python ytAudioFetchGUI.py
    ```
@@ -46,7 +60,9 @@
 #### Copy and paste
 - Windows
     ```bash
+    winget Git.Git python pip ffmpeg
     git clone https://github.com/DryPringleSoup/ytAudioFetch.git
+    cd ytAudioFetch
     python -m venv ytafenv
     ytafenv\Scripts\activate
     pip install -r requirements.txt
@@ -56,6 +72,7 @@
 - Linux
     ```bash
     git clone https://github.com/DryPringleSoup/ytAudioFetch.git
+    cd ytAudioFetch
     python -m venv ytafenv
     source ytafenv\bin\activate
     pip install -r requirements.txt
