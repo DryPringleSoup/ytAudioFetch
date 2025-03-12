@@ -99,12 +99,12 @@ class Worker(QtCore.QThread):
     def __init__(self, mode, arguments):
         super().__init__()
         self.mode = mode
-        self.arguements = arguments
+        self.arguments = arguments
 
     def run(self):
         try:
-            if self.mode == 0: skipList = ytafURL(self.arguements)
-            elif self.mode == 1: skipList = ytafJSON(self.arguements)
+            if self.mode == 0: skipList = ytafURL(self.arguments)
+            elif self.mode == 1: skipList = ytafJSON(self.arguments)
             else: raise ValueError(f"Invalid mode: {self.mode}")
 
             if skipList:
