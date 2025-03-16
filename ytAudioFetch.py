@@ -9,7 +9,7 @@ init(autoreset=True)
 HOME_DIR = os.path.expanduser("~")
 RETRY_LIMIT = 3
 FILENAME_FORMAT = "YTAF-%(id)s-%(title)s.%(ext)s"
-ID3_ALIASES = { # official ID3 tagnames: https://exiftool.org/TagNames/ID3.html
+ID3_ALIASES = { # official ID3 tagnames: https://exiftool.org/TagNames/ID3.html or https://id3.org/id3v2-00
     "url": WOAS, # SourceURL
     "title": TIT2, # Title
     "artist": TPE1, # Artist
@@ -55,6 +55,7 @@ def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
             replacingFiles (bool, optional): Whether to replace the audio file if it already exists. Defaults to False.
             tagExisting (bool, optional): Whether to tag existing files. Defaults to False
             changeableTags (List[str], optional): A list of tags that can be changed. Defaults to None which means all tags can be changed.
+            coverQuality (int, optional): The quality of the cover image. Defaults to 75. Values above 95 result in higher file sizes with a diminishing return on quality.
             overwriteSave (bool, optional): Whether to overwrite the save file if it already exists. Defaults to False.
             verboseSkipList (bool, optional): Whether to print all operations that were skipped or just downloads. Defaults to False.
     Returns:
@@ -64,7 +65,7 @@ def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
     params = validateAndPrepareArgsURL(arguments)
     if params is None: return []
     ( ytURL, outputDir, saveFilePath, downloading, tagging, saving, replacingFiles,
-      tagExisting, changeableTags, overwriteSave, verboseSkipList ) = params
+      tagExisting, changeableTags, coverQuality, overwriteSave, verboseSkipList ) = params
 
     skipList = []
     
@@ -95,8 +96,8 @@ def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
         print(Fore.BLUE + f"Video {i} of {numVideos}", "-", entry['url'])
         processEntryURL(
             entry, ydlOpts, saveData, downloading, tagging,
-            saving, replacingFiles, tagExisting, overwriteSave,
-            changeableTags, skipList, verboseSkipList
+            saving, replacingFiles, tagExisting, changeableTags,
+            coverQuality, overwriteSave, skipList, verboseSkipList
         )
         print("\n")
     else: print(Fore.BLUE + "Processing of all entries complete")
@@ -107,7 +108,7 @@ def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
 
     return skipList
 
-def validateAndPrepareArgsURL(arguments: Dict) -> Tuple[str, str, str, bool, bool, bool, bool, bool, List[str], bool, bool]:
+def validateAndPrepareArgsURL(arguments: Dict) -> Tuple[str, str, str, bool, bool, bool, bool, bool, List[str], int, bool, bool]:
     """Validates and prepares the input arguments for the ytafURL function."""
     ytURL = arguments.get("ytURL")
     outputDir = arguments.get("outputDir")
@@ -129,12 +130,13 @@ def validateAndPrepareArgsURL(arguments: Dict) -> Tuple[str, str, str, bool, boo
     saveFilePath = os.path.expanduser( arguments.get("saveFilePath", os.path.join(HOME_DIR, ".ytAudioFetchSave.json")))
     replacingFiles = arguments.get("replacingFiles", False)
     tagExisting = arguments.get("tagExisting", False)
+    coverQuality = arguments.get("coverQuality", 75)
     overwriteSave = arguments.get("overwriteSave", False)
     verboseSkipList = arguments.get("verboseSkipList", False)
     outputDir = os.path.expanduser(outputDir)
     os.makedirs(outputDir, exist_ok=True)
     
-    return ytURL, outputDir, saveFilePath, downloading, tagging, saving, replacingFiles, tagExisting, changeableTags, overwriteSave, verboseSkipList
+    return ytURL, outputDir, saveFilePath, downloading, tagging, saving, replacingFiles, tagExisting, changeableTags, coverQuality, overwriteSave, verboseSkipList
 
 def extractBasicInfo(ytURL: str, outputDir: str, skipList: List[Tuple[str, str]]) -> Dict:
     """
@@ -184,8 +186,8 @@ def extractBasicInfo(ytURL: str, outputDir: str, skipList: List[Tuple[str, str]]
     return info
 
 def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Dict[str, Dict[str, str]], downloading: bool,
-                    tagging: bool, saving: bool, replacingFiles: bool, tagExisting: bool, overwriteSave: bool,
-                    changeableTags: List[str], skipList: List[Tuple[str, str]], verboseSkipList: bool) -> None:
+                    tagging: bool, saving: bool, replacingFiles: bool, tagExisting: bool, changeableTags: List[str], coverQuality: int,
+                    overwriteSave: bool, skipList: List[Tuple[str, str]], verboseSkipList: bool) -> None:
     """
     Processes a single entry in a playlist.
     
@@ -200,6 +202,7 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
         tagExisting (bool): Whether to tag existing files.
         overwriteSave (bool): Whether to overwrite the save file if it already exists.
         changeableTags (List[str]): A list of tags that can be changed.
+        coverQuality (int): The quality of the cover image.
         skipList (List[Tuple[str, str]]): A list of tuples where the first element is a YouTube URL and the second element is the reason why it was skipped.
         verboseSkipList (bool): Whether to print all operations that were skipped or just downloads.
     """
@@ -217,8 +220,10 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
     shouldDownload = downloading and (replacingFiles or not audioFileExists)
     shouldTag = tagging and changeableTags and ((tagExisting and audioFileExists) or shouldDownload)
     shouldSave = saving and changeableTags and (overwriteSave or not audioSaveExists)
+    shouldExtractVerbose = ((shouldTag or shouldSave) and (("thumbnail" in changeableTags and coverQuality >= 4) or "description" in changeableTags))
+    # the basic info already has low quality thumbnails, so we don't need to extract verbose info when the cover quality requested is very low
 
-    if shouldDownload or ((shouldTag or shouldSave) and hasVerboseTags(changeableTags)):
+    if shouldDownload or shouldExtractVerbose:
         print(Fore.GREEN + f"{'Downloading' if shouldDownload else 'Extracting info for'} ({entry['url']}):", entry["title"])
         with yt_dlp.YoutubeDL(ydlOpts) as ydl:
             for i in range(RETRY_LIMIT):
@@ -243,7 +248,7 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
                     extractionError = e
 
                     if i == 0:
-
+                        
                         if not isConnectionError(extractionError): # if its not a connection error, don't retry
                             # age restricted videos still have a thumbnail, thoughnot the full res one
                             if "confirm your age" in str(extractionError): entry["thumbnail"] = entry["thumbnails"][-1]["url"]
@@ -264,11 +269,12 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
     
     if shouldTag or shouldSave:
         print(Fore.GREEN + "Parsing entry data...")
+        entry["coverQuality"] = coverQuality
         metadata = parseEntryData(entry, changeableTags)
 
         if shouldTag:
             print(Fore.GREEN + "Adding tags to:", audioFilePath)
-            result, wasTagged = addID3Tags(audioFilePath, metadata)
+            result, wasTagged = addID3Tags(audioFilePath, metadata, coverQuality)
             if wasTagged: print(Fore.GREEN + audioFilePath + " has been tagged")
             elif verboseSkipList: addToSkipList(skipList, entry["url"], result)
         
@@ -308,10 +314,6 @@ def getActualFileName(infoDict: Dict[str, Any], ydlOpts: Dict[str, Any]) -> str:
     """Returns the actual file name of a video from its info dictionary."""
     return os.path.normpath( changeFileExt( yt_dlp.YoutubeDL(ydlOpts).prepare_filename(infoDict), "mp3" ) )
 
-def hasVerboseTags(changeableTags: List[str]) -> bool:
-    """Some tags need verbose info dict, this function checks if any of tags requested are one of those"""
-    return any(tag in ["thumbnail","description"] for tag in changeableTags)
-
 def parseEntryData(data: Dict[str, str], tagRequests: List[str] = None) -> Dict[str, str]:
     """
     Parses entry data from the YouTube video information.
@@ -340,6 +342,10 @@ def parseEntryData(data: Dict[str, str], tagRequests: List[str] = None) -> Dict[
 
         parsedData["artist"] = artist
         parsedData["title"] = title
+    
+    if "thumbnail" in tagRequests: # the basic info already has three low quality thumbnails
+        coverQuality = data.get("coverQuality", 75)
+        if coverQuality < 4: parsedData["thumbnail"] = data["thumbnails"][coverQuality]["url"]
 
     return parsedData
 
@@ -353,6 +359,7 @@ def ytafJSON(arguments: Dict[str, Any]) -> List[Tuple[str, str]]:
             tagging (bool, optional): Whether to tag the audio files. Defaults to True.
             replacingFiles (bool, optional): Whether to replace the audio if it already exists. Defaults to False.
             changeableTags (List[str], optional): A list of tags that can be changed. Defaults to None which means all tags can be changed.
+            coverQuality (int, optional): The quality of the cover image. Defaults to 75. Values above 95 result in higher file sizes with a diminishing return on quality.
             verboseSkipList (bool, optional): Whether to print all operations that were skipped or just downloads. Defaults to False.
     Returns:
         List[Tuple[str, str]]: A list of tuples containing the audio file path and the reason it was skipped.
@@ -360,7 +367,8 @@ def ytafJSON(arguments: Dict[str, Any]) -> List[Tuple[str, str]]:
     # Validate and prepare input arguments
     params = validateAndPrepareArgsJSON(arguments)
     if params is None: return []
-    ( saveFilePath, downloading, tagging, replacingFiles, changeableTags, verboseSkipList ) = params
+    ( saveFilePath, downloading, tagging, replacingFiles,
+      changeableTags, coverQuality, verboseSkipList ) = params
 
     skipList = []
 
@@ -388,15 +396,16 @@ def ytafJSON(arguments: Dict[str, Any]) -> List[Tuple[str, str]]:
         print(Fore.BLUE+f"JSON entry {i} of {entries}", "-", audioFilePath)
         print(*[ f"{key}: {value}" for key, value in data.items()], sep="\n")
         processEntryJSON(
-            audioFilePath, data, ydlVerbose, downloading, tagging,
-            replacingFiles, changeableTags, skipList, verboseSkipList
+            audioFilePath, data, ydlVerbose, downloading,
+            tagging, replacingFiles, changeableTags, 
+            coverQuality, skipList, verboseSkipList
         )
         print("\n")
     else: print(Fore.BLUE + "Processing of all entries complete")
     
     return skipList
 
-def validateAndPrepareArgsJSON(arguments: Dict) -> Tuple[str, bool, bool, bool, List[str], bool]:
+def validateAndPrepareArgsJSON(arguments: Dict) -> Tuple[str, bool, bool, bool, List[str], int, bool]:
     """Validates and prepares the input arguments for the ytafJSON function."""
     saveFilePath = arguments.get("saveFilePath")
     if not saveFilePath: raise ValueError("saveFilePath is required is argument dictionary")
@@ -414,12 +423,14 @@ def validateAndPrepareArgsJSON(arguments: Dict) -> Tuple[str, bool, bool, bool, 
 
     saveFilePath = os.path.expanduser(saveFilePath)
     replacingFiles = arguments.get("replacingFiles", False)
+    coverQuality = arguments.get("coverQuality", 75)
     verboseSkipList = arguments.get("verboseSkipList", False)
     
-    return saveFilePath, downloading, tagging, replacingFiles, changeableTags, verboseSkipList
+    return saveFilePath, downloading, tagging, replacingFiles, changeableTags, coverQuality, verboseSkipList
 
-def processEntryJSON(audioFilePath: str, data: Dict[str, Dict[str, str]], ydlOpts: Dict[str, Any], downloading: bool, tagging: bool,
-                     replacingFiles: bool, changeableTags: List[str], skipList: List[Tuple[str, str]], verboseSkipList: bool) -> None:
+def processEntryJSON(audioFilePath: str, data: Dict[str, Dict[str, str]], ydlOpts: Dict[str, Any],
+                     downloading: bool, tagging: bool, replacingFiles: bool, changeableTags: List[str],
+                     coverQuality: int, skipList: List[Tuple[str, str]], verboseSkipList: bool) -> None:
     """
     Processes a single entry from a JSON file. More or less just processEntryURL but with no saving functionality
     since it's already extracting from a JSON file.
@@ -432,6 +443,7 @@ def processEntryJSON(audioFilePath: str, data: Dict[str, Dict[str, str]], ydlOpt
         tagging (bool): Whether to tag the audio file.
         replacingFiles (bool): Whether to replace existing audio files.
         changeableTags (List[str]): The list of tags that can be changed.
+        coverQuality (int): The quality of the cover image.
         skipList (List[Tuple[str, str]]): The list of skipped entries.
         verboseSkipList (bool): Whether to print all operations that were skipped or just downloads.
     """
@@ -478,8 +490,8 @@ def processEntryJSON(audioFilePath: str, data: Dict[str, Dict[str, str]], ydlOpt
 
     if shouldTag:
         # for a tag to be in the metadata it has to be in changeableTags and in data
-        metadata = { key: data.get(key) for key in changeableTags if data.get(key) }
-        result, wasTagged = addID3Tags(audioFilePath, metadata)
+        metadata = { key: data.get(key) for key in changeableTags if data.get(key) and key in ID3_ALIASES }
+        result, wasTagged = addID3Tags(audioFilePath, metadata, coverQuality)
         if wasTagged: print(Fore.GREEN + audioFilePath + " has been fully downloaded and tagged")
         elif verboseSkipList: addToSkipList(skipList, audioFilePath, result)
 
@@ -500,7 +512,7 @@ def processEntryJSON(audioFilePath: str, data: Dict[str, Dict[str, str]], ydlOpt
         if verboseSkipList: addToSkipList(skipList, audioFilePath, " | ".join(skipMessages[1]))
 
 # Tagging functions
-def addID3Tags(audioFilePath: str, tagData: Dict[str, str] = None) -> Tuple[str, bool]:
+def addID3Tags(audioFilePath: str, tagData: Dict[str, str] = None, coverQuality: int = 75) -> Tuple[str, bool]:
     """
     Adds ID3 tags to the audio file.
     
@@ -542,7 +554,8 @@ def addID3Tags(audioFilePath: str, tagData: Dict[str, str] = None) -> Tuple[str,
             except: addToSkippedTags(skippedTags, f"There was an error adding the URL tag. Value: {url}")
 
         # Cover path from either online or local source
-        if coverSource is not None: addCoverToAudio(coverSource.strip(), audio, skippedTags)
+        if coverSource is not None:
+            addCoverToAudio(coverSource.strip(), audio, skippedTags, coverQuality)
         
         audio.save()
         print(f"Tags added to {audioFilePath}")
@@ -557,21 +570,20 @@ def addToSkippedTags(skippedTags: List[str], reason: str, alert: str = Fore.YELL
     print(alert, reason)
     skippedTags.append(reason)
 
-def addCoverToAudio(coverSource: str, audio: MP3, skippedTags: List[str]) -> Tuple[str, bool]:
+def addCoverToAudio(coverSource: str, audio: MP3, skippedTags: List[str], coverQuality: int = 75) -> Tuple[str, bool]:
     """Given a source for the cover image (file path or link), adds it to the audio file."""
     if coverSource:
         sourceIsLink = isLink(coverSource)
         if sourceIsLink:
-            
-            try: coverFileName = downloadThumbnail(coverSource)
+            try: coverFileName = downloadImageAsJpg(coverSource, coverQuality)
             except requests.exceptions.RequestException as e:
                 addToSkippedTags(skippedTags, f"Failed to download thumbnail ({coverSource}): {e}", alert=Fore.RED+"Download error!")
                 coverFileName = "NoCover.jpg"
-            
-        elif not os.path.exists(coverSource): coverFileName = "NoCover.jpg"
-        elif mimetypes.guess_type(coverSource)[0] != "image/jpeg":
-            coverFileName = changeFileExt(coverSource, "jpg")
-            convertToJpg(coverSource, coverFileName)
+        else: # coverSource is a local path
+            if not os.path.exists(coverSource): coverFileName = "NoCover.jpg"
+            elif mimetypes.guess_type(coverSource)[0] != "image/jpeg":
+                coverFileName = changeFileExt(coverSource, "jpg")
+                convertToJpg(coverSource, coverFileName, coverQuality)
     else:
         coverFileName = "NoCover.jpg"
         addToSkippedTags(skippedTags, "No cover image source provided, falling back with NoCover.jpg")
@@ -580,10 +592,8 @@ def addCoverToAudio(coverSource: str, audio: MP3, skippedTags: List[str]) -> Tup
     print(Fore.MAGENTA+"Adding cover image:", coverFileName if coverExists else coverFileName)
     try:
         audio.tags.add(APIC(
-            encoding=3,
-            mime='image/jpeg',
-            type=3, desc=f"Cover source: {coverSource}" if coverExists else "Couldn't find cover image",
-            data=readImage(coverFileName)
+            encoding=3, mime='image/jpeg', type=3, data=readImage(coverFileName),
+            desc=f"Cover source: {coverSource}" if coverExists else "Couldn't find cover image"
         ))
     except Exception as e: addToSkippedTags(skippedTags, f"There was an error adding the cover image ({coverSource}): {e}")
     
@@ -591,27 +601,29 @@ def addCoverToAudio(coverSource: str, audio: MP3, skippedTags: List[str]) -> Tup
         os.remove(coverFileName)
         print(Fore.YELLOW+"Deleted Temp Thumbnail:", coverFileName)
 
-def convertToJpg(inputImagePath: str, outputImagePath: str) -> None:
+def convertToJpg(inputImagePath: str, outputImagePath: str, quality: int = 75) -> None:
     """
     Converts an image to JPEG format.
     
     Args:
         inputImagePath (str): The path to the input image.
         outputImagePath (str): The path to the output image.
+        quality (int, optional): The quality of the JPEG image. Defaults to 75. High values above 95 result in higher file sizes with a diminishing return on quality.
     """
     try:
         with Image.open(inputImagePath) as img:
             rgb_img = img.convert('RGB')
-            rgb_img.save(outputImagePath, 'JPEG')
-            print("Image converted and saved as", outputImagePath)
+            rgb_img.save(outputImagePath, 'JPEG', quality = quality)
+            print("Image converted and saved as", outputImagePath, "with quality", quality)
     except Exception as e: print("An error occurred when converting:", {e})
 
-def downloadThumbnail(thumbnailURL: str) -> str:
+def downloadImageAsJpg(thumbnailURL: str, coverQuality: int = 75) -> str:
     """
     Downloads a thumbnail image from a URL.
     
     Args:
         thumbnailURL (str): The URL of the thumbnail image.
+        coverQuality (int, optional): The quality of the JPEG image. Defaults to 75. High values above 95 result in higher file sizes with a diminishing return on quality.
     
     Returns:
         str: The filename of the downloaded thumbnail.
@@ -631,7 +643,7 @@ def downloadThumbnail(thumbnailURL: str) -> str:
     # Covers don't appear correctly in other formats
     if mimeType != "image/jpeg": #convert cover image to jpeg
         newcover = tempBaseName+".jpg"
-        convertToJpg(cover, newcover)
+        convertToJpg(cover, newcover, coverQuality)
         print(Fore.YELLOW+"Deleting old cover image:", cover)
         os.remove(cover)
         cover = newcover
@@ -708,6 +720,17 @@ def strInput(inputText: str) -> str:
     while not (string := input(inputText)): pass
     return string
 
+def intInput(inputText: str) -> int:
+    """Asks the user for input until a valid integer is entered."""
+    while not (num := strInput(inputText)):
+        try:
+            num = int(num)
+            if 0 <= num <= 100: return num
+            else: print(Fore.RED+"Invalid number. Please enter a number between 0 and 100.")
+        except ValueError:
+            print(Fore.RED+"Could not convert input to integer. Please enter a valid integer.")
+            pass
+
 def boolInput(inputText: str) -> bool:
     """Asks the user for input until a valid boolean value is entered."""
     return input(inputText).lower() in ["y","","yes","true"]
@@ -752,6 +775,7 @@ if __name__ == "__main__": # User inputs
             "replacingFiles": boolInput("Replace existing files? (y/n): ") if downloading else False,
             "tagExisting": boolInput("tag existing files? (y/n): ") if mode == "0" and tagging else False,
             "changeableTags": changeableTags,
+            "coverQuality": intInput(" *Values over 95 result in higher file sizes with a diminishing return on quality*\nEnter the cover quality (0-100): ") if "thumbnail" in changeableTags else 75,
             "overwriteSave": boolInput("Overwrite data in save file? (y/n): ") if saving else False,
             "verboseSkipList": boolInput("Verbose skip list (show all operations skipped)? (y/n): ")
         }
