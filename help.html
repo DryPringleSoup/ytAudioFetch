@@ -58,11 +58,11 @@
     </table>
 
     <h2>Guide</h2>
-    <img src="URLmodeLabelled.png" width="700" alt="labelled url mode">
+    <img src="URLmodeLabelled.png" width="700" alt="labelled url mode" id="URLmode">
 
     <ol>
-        <li><b>URL Mode</b> - This is the main mode, it allows downloading any playlist's or video's audio.</li>
-        <li><b>JSON Mode</b> <i>(More info below next image)</i> - Using your own custom JSON file, you can put in your own tag data and have all the specified files be tagged.</li>
+        <li><b><a href="#URLmode">URL Mode</a></b> - This is the main mode, it allows downloading any playlist's or video's audio.</li>
+        <li><b><a href="#JSONmode">JSON Mode</a></b> - Using your own custom JSON file, you can put in your own tag data and have all the specified files be tagged.</li>
         <li><b>Help Button</b> - Opens up this guide in your browser.</li>
         <li><b>Youtube URL to extract from</b> - Non-private playlist or single videos (this includes shorts) are valid.</li>
         <li><b>Directory/Folder to save to</b> - You can either manually type it or press the folder icon and browse to find it.</li>
@@ -74,7 +74,7 @@
         <li><b>Save operation</b> - Whether or not to save the tag data to a JSON file.</li>
         <li><b>Replacing files</b> - Replace existing files with the same name, works by checking if a file has the format <code>YTAF-[id]-[title].mp3</code> (with the same ID and title). This means, if you change the file name, the original will not be replaced.</li>
         <li><b>Tag existing</b> - Uses the same check as 12 to determine existing files. When turned off, skips tagging if the file already exists.</li>
-        <li><b>*Youtube URL tag</b> - Gets saved to the WOAS (sourceURL) ID3 tag.</li>
+        <li id="tags"><b>*Youtube URL tag</b> - Gets saved to the WOAS (sourceURL) ID3 tag.</li>
         <li><b>*Title tag<sup><a href="#fn2">[2]</a></sup></b> - Gets saved to the TIT2 (title) ID3 tag.</li>
         <li><b>*Artist tag<sup><a href="#fn2">[2]</a></sup></b> - Gets saved to the TPE1 (artist) ID3 tag.</li>
         <li><b>*Uploader tag</b> - Gets saved to the TPUB (publisher) ID3 tag.</li>
@@ -96,7 +96,7 @@
     </ul>
     <br>
 
-    <img src="JSONmodeLabelled.png" width="700" alt="labelled json mode">
+    <img src="JSONmodeLabelled.png" width="700" alt="labelled json mode" id="JSONmode">
 
     <ol>
         <li><b>JSON file to extract from</b> - You can either manually type it or press the file icon and browse to find it.</li>
@@ -118,6 +118,6 @@
     }
     </code></pre>
 
-    <p><i>Note:<i> Not all tags are required to be included. However, only supported tags (see 14-19) will be added.</p>
+    <p><i>Note:<i> Not all tags are required to be included. However, only supported tags (see <a href="#tags">14-19</a>) will be added.</p>
 </body>
 </html>

@@ -80,10 +80,10 @@ If you're on windows you can just download the executable from the [releases pag
     ```
 
 ## Guide
-<img src="URLmodeLabelled.png" width="700" alt="labelled url mode">
+<img src="URLmodeLabelled.png" width="700" alt="labelled url mode" id="URLmode">
 
-1. **URL Mode** - This is the main mode, it allows to download any playlist's or video's audio
-2. **JSON Mode** *(More info below next image)* - Using your own custom JSON file, you can put in your own tag data and have all the specified files be tagged
+1. **[URL Mode](#URLmode)** - This is the main mode, it allows to download any playlist's or video's audio
+2. **[JSON Mode](#JSONmode)** - Using your own custom JSON file, you can put in your own tag data and have all the specified files be tagged
 3. **Help Button** - Opens up this guide in your browser
 4. **Youtube URL to extract from** - non-private playlist or single videos (this includes shorts) are valid
 5. **Directory/Folder to save to** - you can either manually type it or press the folder icon and browse to find it
@@ -118,7 +118,7 @@ If you're on windows you can just download the executable from the [releases pag
 
 <br>
 
-<img src="JSONmodeLabelled.png" width="700" alt="labelled json mode">
+<img src="JSONmodeLabelled.png" width="700" alt="labelled json mode" id="JSONmode">
 
 1. **Json file to extract from** - you can either manually type it or press the file icon and browse to find it
    - json files should be formatted like this
