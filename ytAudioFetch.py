@@ -1,7 +1,7 @@
 import os, requests, yt_dlp, json, mimetypes
 from hashlib import sha256
 from PIL import Image
-from mutagen.id3 import ID3, WOAS, TIT2, TPE1, TPUB, APIC, COMM
+from mutagen.id3 import ID3, ID3NoHeaderError, WOAS, TIT2, TPE1, TPUB, APIC, COMM
 from typing import Any, Tuple, List, Dict, Union
 from colorama import Fore, init
 init(autoreset=True)
@@ -563,7 +563,11 @@ def addID3Tags(audioFilePath: str, tagData: Dict[str, str] = None, coverOptions:
     skippedTags = [] # list of skipped tags
 
     try:
-        tags = ID3(audioFilePath)
+        try: tags = ID3(audioFilePath)
+        except ID3NoHeaderError:
+            print(Fore.YELLOW+ "No ID3 tag found, creating a new one...")
+            tags = ID3()
+            tags.save(audioFilePath)
 
         coverSource = data.pop("thumbnail", None)
         url = data.pop("url", None)
@@ -687,7 +691,8 @@ def jpgCompress(inputImagePath: str, outputImagePath: str, quality: int = 75) ->
     try:
         with Image.open(inputImagePath) as img:
             rgb_img = img.convert('RGB')
-            rgb_img.save(outputImagePath, 'JPEG', quality = quality)
+            if quality < 95: rgb_img.save(outputImagePath, 'JPEG', quality = quality)
+            else: rgb_img.save(outputImagePath, 'JPEG', subsampling=0, quality=quality)
             print("Image converted and saved as", outputImagePath, "with quality", quality)
     except Exception as e: print("An error occurred when converting:", {e})
 

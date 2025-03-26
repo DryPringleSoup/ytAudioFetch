@@ -462,7 +462,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         layout.addLayout(self.coverQualitySliderLayout)
     
     def setcoverQuality(self):
-        self.coverQualitySliderLabel.setText(f"Cover Compression coverQuality: {self.coverQualitySlider.value()}")
+        self.coverQualitySliderLabel.setText(f"Cover Compression Quality: {self.coverQualitySlider.value()}")
         if self.coverQualitySlider.value() > 95:
             self.coverQualityWarningLabel.setVisible(True)
             self.coverQualitySlider.setStyleSheet("""
