@@ -13,7 +13,7 @@
 
 ## Installation
 ### Download executable
-If you're on windows you can just download the executable from the [releases page](https://github.com/DryPringleSoup/ytAudioFetch/releases).
+If you're on windows you can just download the installer from the [releases page](https://github.com/DryPringleSoup/ytAudioFetch/releases).
 
 ### Command Line
 0. Make sure you have [git](https://git-scm.com/), [python](https://www.python.org/), [pip](https://pip.pypa.io/en/stable/), and [ffmpeg](https://www.ffmpeg.org/) installed

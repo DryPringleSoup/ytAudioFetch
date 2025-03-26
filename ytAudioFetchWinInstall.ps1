@@ -14,7 +14,16 @@ try {
     cd ytAudioFetch
     python -m venv ytafenv
     ytafenv\Scripts\Activate.ps1
-    pip install -r requirements.txt
+    
+    try { pip install -r requirements.txt }
+    catch {
+        Write-Host "Error occurred with installing with requirements.txt: $_"
+        try { pip install requests yt-dlp mutagen pillow pyqt5 colorama }
+        catch {
+            Write-Host "Error occurred with installing with plain pip: $_"
+            exit 1
+        }
+    }
 
 } catch {
     Write-Host "Error occurred: $_"
