@@ -486,7 +486,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         outputDir = self.outputDirInput.getPath()
         saveFilePath = self.saveFilePathInput.getPath() if self.saveFilePathInput.isEnabled() else ""
 
-        if self.scriptMode == 0 and not (url and outputDir):
+        if self.scriptMode == 0 and not (ytURL and outputDir):
             self.statusLabel.setText("Please fill in all fields.")
             return
 
