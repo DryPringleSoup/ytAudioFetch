@@ -160,13 +160,14 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
 
         # Mode toggle buttons: They really just do the same thing (toggling the mode); the buttons really show which mode is active
         self.scriptModeToggleLayout = QtWidgets.QHBoxLayout()
+        scriptModeSwitch = lambda: self.setScriptMode((self.scriptMode + 1) % YTAudioFetcherGUI.scriptModes)
 
         self.urlButton = QtWidgets.QPushButton("Youtube URL", self)
-        self.urlButton.clicked.connect(self.scriptModeSwitch)
+        self.urlButton.clicked.connect(scriptModeSwitch)
         self.scriptModeToggleLayout.addWidget(self.urlButton)
 
         self.jsonButton = QtWidgets.QPushButton("JSON file", self)
-        self.jsonButton.clicked.connect(self.scriptModeSwitch)
+        self.jsonButton.clicked.connect(scriptModeSwitch)
         self.scriptModeToggleLayout.addWidget(self.jsonButton)
 
         self.layout.addLayout(self.scriptModeToggleLayout)
@@ -180,7 +181,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.helpButton = QtWidgets.QPushButton("?", self)
         self.helpButton.setFixedSize(20, 20)
         self.helpButton.setStyleSheet("font-weight: bold;")
-        self.helpButton.clicked.connect(self.showHelp)
+        self.helpButton.clicked.connect(lambda: webbrowser.open("help.html"))
         self.scriptModeInfoLayout.addWidget(self.helpButton)
 
         self.layout.addLayout(self.scriptModeInfoLayout)
@@ -226,9 +227,6 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         sys.stdout = self.outputCapture
 
         self.setLayout(self.layout)
-
-    def scriptModeSwitch(self):
-        self.setScriptMode((self.scriptMode + 1) % YTAudioFetcherGUI.scriptModes)
     
     def setScriptMode(self, scriptMode):
         self.scriptModeLayout.removeWidget(self.saveFilePathInput)
@@ -269,20 +267,19 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.setThemeMode(self.isDarkMode)
         self.verticalCollapse()
     
-    def showHelp(self):
-        webbrowser.open("file://"+os.path.dirname(__file__)+"/help.html")
-
     def updateOptions(self):
         downloading = self.operationSwitchsDict["download audio"].isChecked()
         tagging = self.operationSwitchsDict["tag audio"].isChecked()
         saving = self.operationSwitchsDict["save tags"].isChecked()
         extracting = (self.scriptMode == 0 and (tagging or saving)) or (self.scriptMode == 1 and tagging)
+        shouldGetCover = tagging and self.tagSwitchsDict["thumbnail"].isChecked()
 
         self.replaceFilesSwitch.setEnabled(downloading)
         self.tagExistingSwitch.setEnabled(tagging)
         self.tagSelectionLabel.setEnabled(extracting)
         self.tagsGroup.setEnabled(extracting)
-        self.qualityGroup.setEnabled(tagging and self.tagSwitchsDict["thumbnail"].isChecked())
+        self.coverOptionsGroup.setEnabled(shouldGetCover)
+        self.showCoverOptionsButton.setStyleSheet("" if shouldGetCover else "text-decoration: line-through;")
         self.overwriteSavesSwitch.setEnabled(saving)
         self.saveFilePathInputLabel.setEnabled(saving)
         self.saveFilePathInput.setEnabled(saving or self.scriptMode == 1)
@@ -302,7 +299,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
     def initOptionsMenu(self):
         # Options button
         self.optionsButton = QtWidgets.QPushButton("Advanced Options", self)
-        self.optionsButton.clicked.connect(self.toggleOptionsMenu)
+        self.optionsButton.clicked.connect(lambda: self.optionsGroup.setVisible(not self.optionsGroup.isVisible()))
         self.scriptModeLayout.addWidget(self.optionsButton)
 
         # Options menu layout
@@ -329,9 +326,10 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
 
         self.initTagsCheckList() # lists of ID3 tags that are supported to be tagged or saved
         self.tagSwitchsDict["thumbnail"].setText("thumbnail (cover)")
-        self.tagSwitchsDict["thumbnail"].toggled.connect(self.toggleQualityOption)
+        self.tagSwitchsDict["thumbnail"].toggled.connect(self.updateOptions)
 
-        self.initQualityOption() # slider for thumbnail quality
+        self.initCoverOptions() # all cover options
+        self.coverOptionsGroup.setVisible(False)
 
         self.overwriteSavesSwitch = StrikableCheckBox("Overwrite data in save file", self)
         self.optionsLayout.addWidget(self.overwriteSavesSwitch)
@@ -349,17 +347,12 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.optionsGroup.setLayout(self.optionsLayout)
         self.scriptModeLayout.addWidget(self.optionsGroup)
     
-    def toggleOptionsMenu(self):
-        self.optionsGroup.setVisible(not self.optionsGroup.isVisible())
-        self.verticalCollapse()
-
     def toggleThemeMode(self):
         self.isDarkMode = not self.isDarkMode
         self.setThemeMode(self.isDarkMode)
 
     def setThemeMode(self, darkMode):
-        if darkMode: self.setStyleSheet(YTAudioFetcherGUI.darkMode)
-        else: self.setStyleSheet(YTAudioFetcherGUI.lightMode)
+        self.setStyleSheet(YTAudioFetcherGUI.darkMode if darkMode else YTAudioFetcherGUI.lightMode)
     
     def initOperationsCheckList(self):    
         # Operations layout
@@ -393,81 +386,86 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
 
         self.tagRequests = list(ID3_ALIASES)
     
-    def toggleQualityOption(self):
-        self.qualityGroup.setEnabled(self.operationSwitchsDict["tag audio"].isChecked() and self.tagSwitchsDict["thumbnail"].isChecked())
+    def initCoverOptions(self):
+        self.showCoverOptionsButton = QtWidgets.QPushButton("Cover Tagging Options", self)
+        self.showCoverOptionsButton.clicked.connect(lambda: self.coverOptionsGroup.setVisible(not self.coverOptionsGroup.isVisible()))
+        self.optionsLayout.addWidget(self.showCoverOptionsButton)
 
-    def initQualityOption(self):
-        self.qualityLayout = QtWidgets.QVBoxLayout()
-        self.qualityLayout.setContentsMargins(0, 0, 0, 0)
+        self.coverOptionsLayout = QtWidgets.QVBoxLayout()
+
+        self.clearCoversSwitch = QtWidgets.QCheckBox("Clear existing covers", self)
+        self.clearCoversSwitch.setChecked(True)
+        self.coverOptionsLayout.addWidget(self.clearCoversSwitch)
+
+        self.coverDirInput = FileBrowser("folder", "Enter folder to save covers to", parent=self)
+        self.coverOptionsLayout.addWidget(self.coverDirInput)
         
+        self.initcoverQualityOption(self.coverOptionsLayout) # slider for thumbnail coverQuality
+
+        self.coverOptionsGroup = QtWidgets.QGroupBox(self)
+        self.coverOptionsGroup.setLayout(self.coverOptionsLayout)
+        self.optionsLayout.addWidget(self.coverOptionsGroup)
+
+    def initcoverQualityOption(self, layout):
         # add value label and warning laid out horizontally
-        self.qualityInfoLayout = QtWidgets.QHBoxLayout()
-        self.qualityInfoLayout.setContentsMargins(0, 0, 0, 0)
+        self.coverQualityInfoLayout = QtWidgets.QHBoxLayout()
+        self.coverQualityInfoLayout.setContentsMargins(0, 0, 0, 0)
 
-        self.qualitySliderLabel = QtWidgets.QLabel(self)
-        self.qualityInfoLayout.addWidget(self.qualitySliderLabel, 1)
+        self.coverQualitySliderLabel = QtWidgets.QLabel(self)
+        self.coverQualityInfoLayout.addWidget(self.coverQualitySliderLabel, 1)
 
-        self.qualityWarningLabel = QtWidgets.QLabel("*Qualities above 95 have diminishing returns and may make large files sizes", self)
-        self.qualityWarningLabel.setStyleSheet("font-size: 7pt;") # smaller font
-        self.qualityWarningLabel.setVisible(False)
-        self.qualityInfoLayout.addWidget(self.qualityWarningLabel)
+        self.coverQualityWarningLabel = QtWidgets.QLabel("*Qualities above 95 have diminishing returns and may make large files sizes", self)
+        self.coverQualityWarningLabel.setStyleSheet("font-size: 7pt;") # smaller font
+        self.coverQualityWarningLabel.setVisible(False)
+        self.coverQualityInfoLayout.addWidget(self.coverQualityWarningLabel)
 
-        self.qualityLayout.addLayout(self.qualityInfoLayout)
+        layout.addLayout(self.coverQualityInfoLayout)
 
         # add slider, end labels, and buttons laid out vertically
-        self.qualitySliderLayout = QtWidgets.QHBoxLayout()
-        self.qualitySliderLayout.setContentsMargins(0, 0, 0, 0)
+        self.coverQualitySliderLayout = QtWidgets.QHBoxLayout()
+        self.coverQualitySliderLayout.setContentsMargins(0, 0, 0, 0)
         
-        self.qualityDownButton = QtWidgets.QPushButton("◄", self)
-        self.qualityDownButton.setFixedSize(30, 30)
-        self.qualityDownButton.clicked.connect(self.qualitySliderDown)
-        self.qualityDownButton.setAutoRepeat(True)
-        self.qualityDownButton.setAutoRepeatDelay(400)
-        self.qualityDownButton.setAutoRepeatInterval(80)
-        self.qualitySliderLayout.addWidget(self.qualityDownButton)
+        self.coverQualityDownButton = QtWidgets.QPushButton("◄", self)
+        self.coverQualityDownButton.setFixedSize(30, 30)
+        self.coverQualityDownButton.clicked.connect(lambda: self.coverQualitySlider.setValue(self.coverQualitySlider.value() - 1))
+        self.coverQualityDownButton.setStyleSheet("border: none;")
+        self.coverQualityDownButton.setAutoRepeat(True)
+        self.coverQualityDownButton.setAutoRepeatDelay(400)
+        self.coverQualityDownButton.setAutoRepeatInterval(80)
+        self.coverQualitySliderLayout.addWidget(self.coverQualityDownButton)
 
-        self.qualitySliderMinimumLabel = QtWidgets.QLabel("0", self)
-        self.qualitySliderLayout.addWidget(self.qualitySliderMinimumLabel)
+        self.coverQualitySliderMinimumLabel = QtWidgets.QLabel("0", self)
+        self.coverQualitySliderLayout.addWidget(self.coverQualitySliderMinimumLabel)
 
-        self.qualitySlider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        self.qualitySlider.setMinimum(0)
-        self.qualitySlider.setMaximum(100)
-        self.qualitySlider.valueChanged.connect(self.setQuality)
-        self.qualitySlider.setValue(75)
-        self.qualitySlider.setTickInterval(10)
-        self.qualitySlider.setTickPosition(QtWidgets.QSlider.TicksBothSides)
-        self.qualitySlider.setStyleSheet("QSlider::handle:horizontal { background: white; border: 1px solid #aaa; border-radius: 3px; }")
-        self.qualitySliderLayout.addWidget(self.qualitySlider)
+        self.coverQualitySlider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.coverQualitySlider.setMinimum(0)
+        self.coverQualitySlider.setMaximum(100)
+        self.coverQualitySlider.valueChanged.connect(self.setcoverQuality)
+        self.coverQualitySlider.setValue(75)
+        self.coverQualitySlider.setTickInterval(10)
+        self.coverQualitySlider.setTickPosition(QtWidgets.QSlider.TicksBothSides)
+        self.coverQualitySlider.setStyleSheet("QSlider::handle:horizontal { background: white; border: 1px solid #aaa; border-radius: 3px; }")
+        self.coverQualitySliderLayout.addWidget(self.coverQualitySlider)
         
-        self.qualitySliderMaximumLabel = QtWidgets.QLabel("100", self)
-        self.qualitySliderLayout.addWidget(self.qualitySliderMaximumLabel)
+        self.coverQualitySliderMaximumLabel = QtWidgets.QLabel("100", self)
+        self.coverQualitySliderLayout.addWidget(self.coverQualitySliderMaximumLabel)
 
-        self.qualityUpButton = QtWidgets.QPushButton("►", self)
-        self.qualityUpButton.setFixedSize(30, 30)
-        self.qualityUpButton.clicked.connect(self.qualitySliderUp)
-        self.qualityUpButton.setAutoRepeat(True)
-        self.qualityUpButton.setAutoRepeatDelay(400)
-        self.qualityUpButton.setAutoRepeatInterval(80)
-        self.qualitySliderLayout.addWidget(self.qualityUpButton)
+        self.coverQualityUpButton = QtWidgets.QPushButton("►", self)
+        self.coverQualityUpButton.setFixedSize(30, 30)
+        self.coverQualityUpButton.setStyleSheet("border: none;")
+        self.coverQualityUpButton.clicked.connect(lambda: self.coverQualitySlider.setValue(self.coverQualitySlider.value() + 1))
+        self.coverQualityUpButton.setAutoRepeat(True)
+        self.coverQualityUpButton.setAutoRepeatDelay(400)
+        self.coverQualityUpButton.setAutoRepeatInterval(80)
+        self.coverQualitySliderLayout.addWidget(self.coverQualityUpButton)
 
-        self.qualityLayout.addLayout(self.qualitySliderLayout)
-
-        self.qualityGroup = QtWidgets.QGroupBox(self)
-        self.qualityGroup.setStyleSheet("border: none;")
-        self.qualityGroup.setLayout(self.qualityLayout)
-        self.optionsLayout.addWidget(self.qualityGroup)
+        layout.addLayout(self.coverQualitySliderLayout)
     
-    def qualitySliderUp(self):
-        self.qualitySlider.setValue(self.qualitySlider.value() + 1)
-
-    def qualitySliderDown(self):
-        self.qualitySlider.setValue(self.qualitySlider.value() - 1)
-    
-    def setQuality(self):
-        self.qualitySliderLabel.setText(f"Cover Compression Quality: {self.qualitySlider.value()}")
-        if self.qualitySlider.value() > 95:
-            self.qualityWarningLabel.setVisible(True)
-            self.qualitySlider.setStyleSheet("""
+    def setcoverQuality(self):
+        self.coverQualitySliderLabel.setText(f"Cover Compression coverQuality: {self.coverQualitySlider.value()}")
+        if self.coverQualitySlider.value() > 95:
+            self.coverQualityWarningLabel.setVisible(True)
+            self.coverQualitySlider.setStyleSheet("""
             QSlider::sub-page:horizontal {
                 background: red;
                 height: 7px;
@@ -479,8 +477,8 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
             }
             """)
         else:
-            self.qualitySlider.setStyleSheet("QSlider::handle:horizontal { background: white; border: 1px solid #aaa; border-radius: 3px; }")
-            self.qualityWarningLabel.setVisible(False)
+            self.coverQualitySlider.setStyleSheet("QSlider::handle:horizontal { background: white; border: 1px solid #aaa; border-radius: 3px; }")
+            self.coverQualityWarningLabel.setVisible(False)
     
     def startYTDLP(self):
         #Input validation
@@ -517,12 +515,16 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         # The disabling in the GUI is essentially just for the user to see what is and isn't getting used in the script
         replacingFiles = self.replaceFilesSwitch.isChecked()
         tagExisting = self.tagExistingSwitch.isChecked()
-        quality = self.qualitySlider.value()
+        
+        clearCovers = self.clearCoversSwitch.isChecked()
+        coverDir = self.coverDirInput.getPath()
+        coverQuality = self.coverQualitySlider.value()
+        
         overwriteSave = self.overwriteSavesSwitch.isChecked()
         verboseSkipList = self.verboseSkipListSwitch.isChecked()
 
         arguDict = {
-            "ytURL": url,
+            "url": url,
             "outputDir": outputDir,
             "saveFilePath": saveFilePath,
             "downloading": downloading,
@@ -531,7 +533,9 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
             "replacingFiles": replacingFiles,
             "tagExisting": tagExisting,
             "changeableTags": changeableTags,
-            "coverQuality": quality,
+            "clearCovers": clearCovers,
+            "coverDir": coverDir,
+            "coverQuality": coverQuality,
             "overwriteSave": overwriteSave,
             "verboseSkipList": verboseSkipList
         }

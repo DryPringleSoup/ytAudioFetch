@@ -21,6 +21,10 @@ If you're on windows you can just download the executable from the [releases pag
    ```bash
    winget Git.Git python pip ffmpeg
    ```
+   - On Linux
+   ```bash
+   sudo <package-manager> install git python3-pip ffmpeg
+   ```
 
 1. Clone repository:
    ```bash
@@ -55,18 +59,18 @@ If you're on windows you can just download the executable from the [releases pag
    ```bash
    python ytAudioFetchGUI.py
    ```
-   - you can also run this script without the GUI by typing: `python ytAudioFetch.py`
+   - you can also run this script without the GUI by typing: `python3 ytAudioFetch.py`
 
 #### Copy and paste
 - Windows
     ```bash
-    winget Git.Git python pip ffmpeg
+    winget install Git.Git python pip ffmpeg
     git clone https://github.com/DryPringleSoup/ytAudioFetch.git
     cd ytAudioFetch
     python -m venv ytafenv
     ytafenv\Scripts\activate
     pip install -r requirements.txt
-    python ytAudioFetchGUI.py
+    python3 ytAudioFetchGUI.py
     ```
 
 - Linux
@@ -76,7 +80,7 @@ If you're on windows you can just download the executable from the [releases pag
     python -m venv ytafenv
     source ytafenv\bin\activate
     pip install -r requirements.txt
-    python ytAudioFetchGUI.py
+    python3 ytAudioFetchGUI.py
     ```
 
 ## Guide
@@ -102,19 +106,24 @@ If you're on windows you can just download the executable from the [releases pag
 18. ***Thumbnail tag<sup>[[1]](#fn1)</sup>** - gets saved to the APIC (picture) ID3 tag
 19. ***Description tag<sup>[[1]](#fn1)</sup>** - gets saved to COMM (comment) ID3 tag
       - *A comprehensive list of ID3 tags can be found with descriptions can be found [here](https://id3.org/id3v2-00) or, for a more concise list, [here](https://exiftool.org/TagNames/ID3.html)
-20. **Compression slider<sup>[[3]](#fn3)</sup>** - controls the compression quality when converting thumbnails to JPG to be tagged onto the mp3
-21. **Overwrite Save** - overwrite the tags saved in the entry for that file in the JSON file that put in 22
-22. **Save file path** - where to save the JSON file, you can either manually type it or press the folder icon and browse to find it
-23. **Start button** - begin the script in the current mode
-24. **Status feed** - updates as the script runs; shows the current video being processed and, when finished, the list of skipped operations
-25. **Output feed** - updates as the script runs; shows the console output from the script
+20. **Cover options toggle** - Hides and unhides cover options; these options are only used if tagging (10) is enabled and the thumbnail tag (18) is enabled
+21. **Clear covers<sup>[[3]](#fn3)</sup>** - clears all existing, embedded covers tagged on the mp3 file
+22. **Cover save path** - folder to save the covers that get tagged onto the mp3 or cleared, leave blank to not save
+23. **Compression quality slider<sup>[[4]](#fn4)</sup>** - controls the compression quality when converting thumbnails to JPG to be tagged onto the mp3, slide the slider to increase or decrease the quality or use the left and right buttons on the side of the slider to increment or decrement by 1
+24. **Overwrite Save** - overwrite the tags saved in the entry for that file in the JSON file that put in 25
+25. **Save file path** - where to save the JSON file, you can either manually type it or press the folder icon and browse to find it. If left blank, it will save to ytAudioFetchSave.json in the user folder
+26. **Start button** - begin the script in the current mode
+27. **Status feed** - updates as the script runs; shows the current video being processed and, when finished, the list of skipped operations
+28. **Output feed** - updates as the script runs; shows the console output from the script
 
 #### <span id="fn1"></span>
-   - *Note for 9, 18, and 19<sup>1</sup>*: downloading videos or extracting thumbnails/descriptions information requires the extractor to download the audio the full webpage info which can make fetching large playlists very slow. If all you want is to tag/save the other tags, turn off downloading, thumbnails, and descriptions for a much faster extraction
+   - *Note for 9, 18, and 19<sup>1</sup>*: downloading videos or extracting thumbnails/descriptions information requires the extractor to download the audio the full webpage info which can make fetching large playlists very slow. If all you want is to tag/save the other tags, turn off downloading, thumbnails, and descriptions for a much faster extraction. <span id="fn5"> Generally, minizing any unneeded downloading from the internet makes processing faster. So, for example, if you're in JSON mode and you only really want to retag existing files, turn off downloading and if you also don't need to change the thumbnails, turn that off since most of the time the thumbnails are saved as links that have to be downloaded. It should also be made clear that tagging descriptions in JSON mode doesn't really the slow down that it does with URL mode because it's already saved locally and it doesn't have to download the full webpage to get it.</span>
 #### <span id="fn2"></span>
    - *Note for 15 and 16<sup>2</sup>*: when the original youtube title in the form "*this* - *that*", it gets parsed as "*artist* - *title*", otherwise the title is just the original title and the artist is just the channel name (I know this is not a perfect solution but it works a good 7 / 10 times so I don't particularly care enough to think of something more convoluted). Also, if the artist is the channel name, it removes the " - Topic" suffix from autogenerated YouTube Music tracks.
 #### <span id="fn3"></span>
-   - *Note for 20<sup>3</sup>*: qualities above 95 have diminishing return and may lead to large files. Also, covers that already jpegs will not be converted or compressed
+   - *Note for 21<sup>3</sup>*: this is useful because the tagged covers automatically get sorted by image size in ascending order which causes the smallest cover to be always be shown first even if you added bigger cover images later. To my knowledge, there is no way of changing this order which is really annoying.
+#### <span id="fn4"></span>
+   - *Note for 23<sup>4</sup>*: qualities above 95 have diminishing return and may lead to large files. Also, covers that already jpegs will not be converted or compressed
 
 <br>
 
@@ -137,10 +146,13 @@ If you're on windows you can just download the executable from the [releases pag
     }
     ```
    - *Note*: not all tags are required to be included, however only supported tags (see 14-19) will be added
+2. ***((Everything else function as if in [URL mode](#URLmode)))***
+
+- *Note when tagging using JSON mode*: refer to the <a href="#fn5">ladder half</a> of note 1 in url mode
 
 ## App Previews
 ### GUI
-![app previews](allLooks.png)
+<img src="allLooks.png" width="800" alt="app previews">
 
 ### Original script
 ```bash
@@ -164,6 +176,8 @@ Enter the directory to save the MP3 files: ~/Music
 Enter the path of the JSON save file: ~/ytAudioFetchSave.json
 Replace existing files? (y/n): y
 tag existing files? (y/n): y
+Clear existing covers? (y/n): y
+Enter the directory to save the cover images (leave empty to not save covers): ~/ytAudioFetchCovers
 *Values over 95 result in higher file sizes with a diminishing return on quality*
 Enter the cover quality (0-100): 70
 Overwrite data in save file? (y/n): y
@@ -184,6 +198,8 @@ Available tags:
 Enter the tags you want to change: 123456
 Enter the YouTube playlist/video URL: ~/ytAudioFetchSave.json
 Replace existing files? (y/n): y
+Clear existing covers? (y/n): y
+Enter the directory to save the cover images (leave empty to not save covers): ~/ytAudioFetchCovers
 *Values over 95 result in higher file sizes with a diminishing return on quality*
 Enter the cover quality (0-100): 70
 Verbose skip list (show all operations skipped)? (y/n): y
