@@ -12,7 +12,7 @@
 
 
 ## Installation
-### Download executable
+### Download Installer
 If you're on windows you can just download the installer from the [releases page](https://github.com/DryPringleSoup/ytAudioFetch/releases).
 
 ### Command Line
