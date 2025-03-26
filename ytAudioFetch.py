@@ -144,7 +144,7 @@ def validateAndPrepareArgsURL(arguments: Dict) -> Tuple[str, str, str, bool, boo
     outputDir = os.path.expanduser(outputDir)
     coverDir = os.path.expanduser(coverDir)
     os.makedirs(outputDir, exist_ok=True)
-    os.makedirs(coverDir, exist_ok=True)
+    if coverDir: os.makedirs(coverDir, exist_ok=True)
     
     return ytURL, outputDir, saveFilePath, downloading, tagging, \
     saving, replacingFiles, tagExisting, changeableTags, clearCovers, \
@@ -447,7 +447,7 @@ def validateAndPrepareArgsJSON(arguments: Dict) -> Tuple[str, bool, bool, bool, 
     verboseSkipList = arguments.get("verboseSkipList", False)
 
     coverDir = os.path.expanduser(coverDir)
-    os.makedirs(coverDir, exist_ok=True)
+    if coverDir: os.makedirs(coverDir, exist_ok=True)
     
     return saveFilePath, downloading, tagging, replacingFiles, \
     changeableTags, clearCovers, coverDir, coverQuality, verboseSkipList
