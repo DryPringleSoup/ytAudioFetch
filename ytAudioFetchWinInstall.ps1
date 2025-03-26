@@ -9,6 +9,7 @@ try {
     
     # Overwrite existing ytAudioFetch directory
     cd ~
+    Remove-Item -Path "~\ytAudioFetch" -Recurse -Force
     git clone https://github.com/DryPringleSoup/ytAudioFetch.git
     cd ytAudioFetch
     python -m venv ytafenv
@@ -21,7 +22,7 @@ try {
 }
 
 # Download executable and place on desktop
-$repoUrl = "https://github.com/DryPringleSoup/ytAudioFetch/raw/main/"
+$repoUrl = "https://github.com/DryPringleSoup/ytAudioFetch/raw/refs/heads/master/"
 $filePath = "ytAudioFetch.exe"
 $gitUrl = $repoUrl + $filePath
 $desktopPath = [Environment]::GetFolderPath("Desktop")

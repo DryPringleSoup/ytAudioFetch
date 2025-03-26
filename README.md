@@ -21,7 +21,7 @@ If you're on windows you can just download the executable from the [releases pag
    ```bash
    winget Git.Git python pip ffmpeg
    ```
-   - On Linux
+   - On Linux (most distros) ((if this doesn't work look up your distro's package manager installation instructions))
    ```bash
    sudo <package-manager> install git python3-pip ffmpeg
    ```
@@ -43,7 +43,7 @@ If you're on windows you can just download the executable from the [releases pag
 4. Activate environment
   - On Windows
      ```bash
-     ytafenv\Scripts\activate
+     ytafenv\Scripts\Activate.ps1
      ```
   - On Linux
      ```bash
@@ -57,7 +57,7 @@ If you're on windows you can just download the executable from the [releases pag
 
 6. Run GUI
    ```bash
-   python ytAudioFetchGUI.py
+   python3 ytAudioFetchGUI.py
    ```
    - you can also run this script without the GUI by typing: `python3 ytAudioFetch.py`
 
@@ -68,7 +68,7 @@ If you're on windows you can just download the executable from the [releases pag
     git clone https://github.com/DryPringleSoup/ytAudioFetch.git
     cd ytAudioFetch
     python -m venv ytafenv
-    ytafenv\Scripts\activate
+    ytafenv\Scripts\Activate.ps1
     pip install -r requirements.txt
     python3 ytAudioFetchGUI.py
     ```
