@@ -482,7 +482,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
     
     def startYTDLP(self):
         #Input validation
-        url = self.urlInput.text()
+        ytURL = self.urlInput.text()
         outputDir = self.outputDirInput.getPath()
         saveFilePath = self.saveFilePathInput.getPath() if self.saveFilePathInput.isEnabled() else ""
 
@@ -524,7 +524,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         verboseSkipList = self.verboseSkipListSwitch.isChecked()
 
         arguDict = {
-            "url": url,
+            "ytURL": ytURL,
             "outputDir": outputDir,
             "saveFilePath": saveFilePath,
             "downloading": downloading,
