@@ -11,8 +11,7 @@ def strikeText(self, event): # QtLineEdit and QtCheckBox don't use strike throug
         pen = QtGui.QPen(self.palette().color(self.foregroundRole()))
         pen.setWidth(2)
         painter.setPen(pen)
-
-        text_rect = self.fontMetrics().boundingRect(self.text())
+        text_rect = self.fontMetrics().boundingRect(self.text() or self.placeholderText())
         y = self.rect().center().y()
         painter.drawLine(text_rect.left(), y, text_rect.right()+20, y)
 
