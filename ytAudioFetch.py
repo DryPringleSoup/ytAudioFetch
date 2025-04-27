@@ -16,6 +16,11 @@ ID3_ALIASES = { # official ID3 tagnames: https://exiftool.org/TagNames/ID3.html 
     "uploader": TPUB, # Publisher
     "thumbnail": APIC, # Picture
     "description": COMM # Comment
+    #TODO - add the following:
+    #Release year: parse from upload_date in basic info
+    #Album: playlist name, "single" if not in a playlist
+    #Hastags: parse from tags in basic info
+    # Add option to refer to cover source desctiption to check to downloaf
 }
 def hook(d: Dict[str, Any]) -> None:
     if d["status"] == "finished": print("  [dl hook] Finished downloading info of", d['info_dict']['title'], end="")
@@ -53,6 +58,7 @@ def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
             tagging (bool, optional): Whether to tag the audio file. Defaults to True.
             saving (bool, optional): Whether to save the tag data to a JSON file. Defaults to True.
             replacingFiles (bool, optional): Whether to replace the audio file if it already exists. Defaults to False.
+            proxyURL (str, optional): The URL of the proxy server to use when downloading. Defaults to None.
             tagExisting (bool, optional): Whether to tag existing files. Defaults to False
             changeableTags (List[str], optional): A list of tags that can be changed. Defaults to None which means all tags can be changed.
             clearCovers (bool, optional): Whether to clear the existing cover images already embedded. Defaults to False.
@@ -66,10 +72,9 @@ def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
     # Validate and prepare input arguments
     params = validateAndPrepareArgsURL(arguments)
     if params is None: return []
-    ( ytURL, outputDir, saveFilePath, downloading, tagging, saving,
-      replacingFiles, tagExisting, changeableTags, clearCovers, coverDir,
-      coverQuality, overwriteSave, verboseSkipList ) = params
-
+    ( ytURL, outputDir, downloading, tagging, saving, replacingFiles,
+      proxyURL, tagExisting, changeableTags, clearCovers, coverDir,
+      coverQuality, overwriteSave, saveFilePath, verboseSkipList ) = params
     skipList = []
     
     # Extract basic info (with retry logic)
@@ -80,6 +85,7 @@ def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
     # Setup ydl options for verbose download/tagging operations
     ydlOpts = YDL_VERBOSE_EXTRACTION_OPTS.copy()
     ydlOpts["outtmpl"] = os.path.join(outputDir, ydlOpts["outtmpl"])
+    if proxyURL: ydlOpts["proxy"] = proxyURL
     
     # Load save data
     if saving:
@@ -112,7 +118,7 @@ def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
 
     return skipList
 
-def validateAndPrepareArgsURL(arguments: Dict) -> Tuple[str, str, str, bool, bool, bool, bool, bool, List[str], bool, str, int, bool, bool]:
+def validateAndPrepareArgsURL(arguments: Dict) -> Tuple[str, str, bool, bool, bool, bool, str, bool, List[str], bool, str, int, bool, str, bool]:
     """Validates and prepares the input arguments for the ytafURL function."""
     ytURL = arguments.get("ytURL")
     outputDir = arguments.get("outputDir")
@@ -131,24 +137,33 @@ def validateAndPrepareArgsURL(arguments: Dict) -> Tuple[str, str, str, bool, boo
         print(Fore.YELLOW + "Tagging or saving requires at least one tag to be changeable.")
         return None
 
-    saveFilePath = os.path.expanduser( arguments.get("saveFilePath", os.path.join(HOME_DIR, ".ytAudioFetchSave.json")))
+    # download specific
     replacingFiles = arguments.get("replacingFiles", False)
+    proxyURL = arguments.get("proxyURL", "")
 
+    # tag specific (this includes changeableTags)
     tagExisting = arguments.get("tagExisting", False)
+
+    # cover options
     clearCovers = arguments.get("clearCovers", False)
     coverDir = arguments.get("coverDir", "")
     coverQuality = arguments.get("coverQuality", 75)
 
+    # save specific
     overwriteSave = arguments.get("overwriteSave", False)
+    saveFilePath = os.path.expanduser( arguments.get("saveFilePath", os.path.join(HOME_DIR, ".ytAudioFetchSave.json")))
+    
     verboseSkipList = arguments.get("verboseSkipList", False)
+
+    # Normalize paths
     outputDir = os.path.expanduser(outputDir)
     coverDir = os.path.expanduser(coverDir)
     os.makedirs(outputDir, exist_ok=True)
     if coverDir: os.makedirs(coverDir, exist_ok=True)
     
-    return ytURL, outputDir, saveFilePath, downloading, tagging, \
-    saving, replacingFiles, tagExisting, changeableTags, clearCovers, \
-    coverDir, coverQuality, overwriteSave, verboseSkipList
+    return ytURL, outputDir, downloading, tagging, saving, replacingFiles, \
+           proxyURL, tagExisting, changeableTags, clearCovers, coverDir, \
+           coverQuality, overwriteSave, saveFilePath, verboseSkipList
 
 def extractBasicInfo(ytURL: str, outputDir: str, skipList: List[Tuple[str, str]]) -> Dict:
     """
@@ -374,6 +389,7 @@ def ytafJSON(arguments: Dict[str, Any]) -> List[Tuple[str, str]]:
             downloading (bool, optional): Whether to download the audio files. Defaults to True.
             tagging (bool, optional): Whether to tag the audio files. Defaults to True.
             replacingFiles (bool, optional): Whether to replace the audio if it already exists. Defaults to False.
+            proxyURL (str, optional): The URL of the proxy server to use when downloading. Defaults to None.
             changeableTags (List[str], optional): A list of tags that can be changed. Defaults to None which means all tags can be changed.
             clearCovers (bool, optional): Whether to clear the existing cover images already embedded. Defaults to False.
             coverDir (str, optional): The directory where cover images will be saved. None or "" to not save covers.
@@ -385,8 +401,9 @@ def ytafJSON(arguments: Dict[str, Any]) -> List[Tuple[str, str]]:
     # Validate and prepare input arguments
     params = validateAndPrepareArgsJSON(arguments)
     if params is None: return []
-    ( saveFilePath, downloading, tagging, replacingFiles, changeableTags,
-      clearCovers, coverDir, coverQuality, verboseSkipList ) = params
+    ( saveFilePath, downloading, tagging, replacingFiles,
+      proxyURL, changeableTags, clearCovers, coverDir,
+      coverQuality, verboseSkipList ) = params
 
     skipList = []
 
@@ -408,6 +425,7 @@ def ytafJSON(arguments: Dict[str, Any]) -> List[Tuple[str, str]]:
 
     # Setup ydl options for verbose download/tagging operations
     ydlVerbose = YDL_VERBOSE_EXTRACTION_OPTS.copy()
+    if proxyURL: ydlVerbose["proxy"] = proxyURL
     
     print()
     for i, (audioFilePath, data) in enumerate(saveData.items(), start=1):
@@ -439,18 +457,25 @@ def validateAndPrepareArgsJSON(arguments: Dict) -> Tuple[str, bool, bool, bool, 
     if not (downloading or changeableTags): # Since this passed previous check, downloading or tagging must be true so, if downloading is false, then tagging must be true
         print(Fore.YELLOW + "Tagging requires at least one tag to be changeable.")
 
-    saveFilePath = os.path.expanduser(saveFilePath)
+    # download specific
     replacingFiles = arguments.get("replacingFiles", False)
+    proxyURL = arguments.get("proxyURL", "")
+
+    # cover options
     clearCovers = arguments.get("clearCovers", False)
     coverDir = arguments.get("coverDir", "")
     coverQuality = arguments.get("coverQuality", 75)
+
     verboseSkipList = arguments.get("verboseSkipList", False)
 
+    # Normalize paths
+    saveFilePath = os.path.expanduser(saveFilePath)
     coverDir = os.path.expanduser(coverDir)
     if coverDir: os.makedirs(coverDir, exist_ok=True)
     
     return saveFilePath, downloading, tagging, replacingFiles, \
-    changeableTags, clearCovers, coverDir, coverQuality, verboseSkipList
+           proxyURL, changeableTags, clearCovers, coverDir, \
+           coverQuality, verboseSkipList
 
 def processEntryJSON(audioFilePath: str, data: Dict[str, Dict[str, str]], ydlOpts: Dict[str, Any], downloading: bool,
                      tagging: bool, replacingFiles: bool, changeableTags: List[str], clearCovers: bool, coverDir: str,
@@ -813,6 +838,7 @@ if __name__ == "__main__": # User inputs
             "tagging": tagging,
             "saving": saving,
             "replacingFiles": boolInput("Replace existing files? (y/n): ") if downloading else False,
+            "proxyURL": strInput("Enter the proxy URL (leave empty for no proxy): ") if downloading else None,
             "tagExisting": boolInput("tag existing files? (y/n): ") if mode == "0" and tagging else False,
             "changeableTags": changeableTags,
             "clearCovers": boolInput("Clear existing covers? (y/n): ") if "thumbnail" in changeableTags else False,

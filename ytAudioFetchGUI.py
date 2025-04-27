@@ -1,4 +1,5 @@
-import sys, re, os, webbrowser
+import sys, re, os
+from webbrowser import open as webOpen
 from functools import partial
 from PyQt5 import QtWidgets, QtCore, QtGui
 from colorama import Fore
@@ -66,18 +67,36 @@ class FileBrowser(QtWidgets.QWidget):
     def setPlaceholderText(self, placeholder):
         self.folderInput.setPlaceholderText(placeholder)
 
+class MultiOut:
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, data):
+        for stream in self.streams:
+            stream.write(data)
+            stream.flush()
+
+    def flush(self):
+        for stream in self.streams:
+            stream.flush()
+
 # Processing
 class OutputCapture(QtCore.QObject):
     textUpdated = QtCore.pyqtSignal(str)
     
-    def __init__(self):
+    def __init__(self, logFile):
         super().__init__()
         self.outputBuffer = ""  # buffer for output label
-        self.original_stdout = sys.stdout # console
+        # If connected to a terminal, print to both the terminal and the log file
+        if os.name == "nt" or not sys.stdin.isatty():
+            # sys.stdin.isatty() and most other terminal detection methods don't work on Windows
+            # so I just gave up and made it only write to the log file and not the console
+            self.fullStdout = logFile
+        else: self.fullStdout = MultiOut(sys.stdout, logFile)
 
     def write(self, message):
-        # Write the message to the original stdout (console)
-        self.original_stdout.write(message)
+        # Write the message to the original stdout (console) and the file
+        self.fullStdout.write(message)
 
         if message == "\n": self.outputBuffer = "" # reset buffer if new line
         else:
@@ -180,7 +199,8 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.helpButton = QtWidgets.QPushButton("?", self)
         self.helpButton.setFixedSize(20, 20)
         self.helpButton.setStyleSheet("font-weight: bold;")
-        self.helpButton.clicked.connect(lambda: webbrowser.open("help.html"))
+        # doing webOpen("help.html") works on Linux but not on Windows so you essentially spell out the URL
+        self.helpButton.clicked.connect(lambda: webOpen(os.path.join("file://",os.path.dirname(__file__),"help.html")))
         self.scriptModeInfoLayout.addWidget(self.helpButton)
 
         self.layout.addLayout(self.scriptModeInfoLayout)
@@ -220,10 +240,14 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.scriptModeGroup.setLayout(self.scriptModeLayout)
         self.layout.addWidget(self.scriptModeGroup)
 
-        # Redirect stdout to capture print statements
-        self.outputCapture = OutputCapture()
-        self.outputCapture.textUpdated.connect(self.outputConsole2Labels, QtCore.Qt.QueuedConnection)
+        # Redirect stdout to capture print statements and output them to the labels, console, and log file
+        self.logFile = open("output.log", "w")
+        self.outputCapture = OutputCapture(self.logFile)
+        self.outputCapture.textUpdated.connect(self.outputConsoleToLabels, QtCore.Qt.QueuedConnection)
         sys.stdout = self.outputCapture
+
+        self.errorFile = open("errors.log", "w")
+        self.DualStderr = MultiOut(sys.stderr, self.errorFile)
 
         self.setLayout(self.layout)
     
@@ -274,6 +298,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         shouldGetCover = tagging and self.tagSwitchsDict["thumbnail"].isChecked()
 
         self.replaceFilesSwitch.setEnabled(downloading)
+        self.proxyURLInput.setEnabled(downloading)
         self.tagExistingSwitch.setEnabled(tagging)
         self.tagSelectionLabel.setEnabled(extracting)
         self.tagsGroup.setEnabled(extracting)
@@ -316,6 +341,9 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
 
         self.replaceFilesSwitch = StrikableCheckBox("replace existing files", self)
         self.optionsLayout.addWidget(self.replaceFilesSwitch)
+
+        self.proxyURLInput = StrikableLineEdit(placeholderText="Proxy URL to use when downloading", parent=self)
+        self.optionsLayout.addWidget(self.proxyURLInput)
 
         self.tagExistingSwitch = StrikableCheckBox("tag existing files", self)
         self.optionsLayout.addWidget(self.tagExistingSwitch)
@@ -513,6 +541,8 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         # Not checking for enabled here because the script is already not gonna use these if they aren't enabled
         # The disabling in the GUI is essentially just for the user to see what is and isn't getting used in the script
         replacingFiles = self.replaceFilesSwitch.isChecked()
+        proxyURL = self.proxyURLInput.text()
+
         tagExisting = self.tagExistingSwitch.isChecked()
         
         clearCovers = self.clearCoversSwitch.isChecked()
@@ -530,6 +560,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
             "tagging": tagging,
             "saving": saving,
             "replacingFiles": replacingFiles,
+            "proxyURL": proxyURL,
             "tagExisting": tagExisting,
             "changeableTags": changeableTags,
             "clearCovers": clearCovers,
@@ -552,9 +583,28 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.worker.finished.connect(self.renableStartButton)
         self.worker.start()
     
+    def closeEvent(self, event):
+        if YTAudioFetcherGUI.isProcessing:
+            reply = QtWidgets.QMessageBox.question(
+                self,
+                "Confirm Quit",
+                "Are you sure you want to quit?",
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                QtWidgets.QMessageBox.No
+            )
+
+            if reply == QtWidgets.QMessageBox.Yes: close = True
+            else: event.ignore()
+        else: close = True
+
+        if close:
+            if not self.logFile.closed: self.logFile.close()
+            if not self.errorFile.closed: self.errorFile.close()
+            return super().closeEvent(event)
+
     # Thread emit functions
 
-    def outputConsole2Labels(self, output):
+    def outputConsoleToLabels(self, output):
         # Update status label with video index
         # regex checks for "['Video' or 'JSON entry'] [num] of [num]"
         output = output.strip()
@@ -573,13 +623,8 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
 
 
 if __name__ == '__main__':
-    try:
-        app = QtWidgets.QApplication(sys.argv)
-        window = YTAudioFetcherGUI()
-        window.show()
-        sys.exit(app.exec_())
-    except Exception as e:
-        errorDialog = QtWidgets.QMessageBox()
-        errorDialog.setText("An error occurred: " + str(e))
-        errorDialog.setIcon(QtWidgets.QMessageBox.Critical)
-        errorDialog.exec_()
+    app = QtWidgets.QApplication(sys.argv)
+    window = YTAudioFetcherGUI()
+    window.show()
+    sys.exit(app.exec_())
+    print("Done")

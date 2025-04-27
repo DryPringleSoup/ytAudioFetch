@@ -1,22 +1,34 @@
+# Check if winget is available, if not, offer alternative method.
+if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+    Write-Host "winget not found. Please install winget (https://aka.ms/getwinget) or use another method to install dependencies."
+    exit 1
+}
+
 # Download necessary dependencies and clone repo
+$repoPath = Join-Path -Path $HOME -ChildPath "ytAudioFetch"
 try {
     # Check if dependencies are already installed
-    $dependencies = @("Git.Git", "python", "pip", "ffmpeg")
+    $dependencies = @("Git.Git", "python", "ffmpeg")
     foreach ($dependency in $dependencies) {
         if (Get-Package -Name $dependency -ErrorAction SilentlyContinue) { Write-Host "$dependency is already installed." }
         else { winget install $dependency }
     }
     
-    # Overwrite existing ytAudioFetch directory
-    cd ~
-    Remove-Item -Path "~\ytAudioFetch" -Recurse -Force
-    git clone https://github.com/DryPringleSoup/ytAudioFetch.git
-    cd ytAudioFetch
-    python -m venv ytafenv
-    ytafenv\Scripts\Activate.ps1
+    # Pull repo if already cloned, otherwise clone
+    if (Test-Path $repoPath) {
+        Set-Location $repoPath
+        git reset --hard
+        git pull
+    } else {
+        git clone https://github.com/DryPringleSoup/ytAudioFetch.git $repoPath
+        Set-Location $repoPath
+        python -m venv ytafenv
+    }
     
+    # Update/install requirements for python veny
+    & "ytafenv\Scripts\Activate.ps1"
     try { pip install -r requirements.txt }
-    catch {
+    catch { # Install with plain pip because requirements.txt doesn't work sometimes for some reason
         Write-Host "Error occurred with installing with requirements.txt: $_"
         try { pip install requests yt-dlp mutagen pillow pyqt5 colorama }
         catch {
@@ -30,17 +42,7 @@ try {
     exit 1
 }
 
-# Download executable and place on desktop
-$repoUrl = "https://github.com/DryPringleSoup/ytAudioFetch/raw/refs/heads/master/"
-$filePath = "ytAudioFetch.exe"
-$gitUrl = $repoUrl + $filePath
-$desktopPath = [Environment]::GetFolderPath("Desktop")
-$outputPath = Join-Path -Path $desktopPath -ChildPath $filePath
-
-try {
-    Invoke-WebRequest -Uri $gitUrl -OutFile $outputPath
-    Write-Host "File downloaded successfully: $outputPath"
-} catch {
-    Write-Host "Error occurred: $_"
-    exit 1
-}
+# copy ytAudioFetch.exe to desktop
+$filePath = Join-Path -Path $repoPath -ChildPath "ytAudioFetch.exe"
+$outputPath = Join-Path -Path [Environment]::GetFolderPath("Desktop") -ChildPath $filePath
+Copy-Item -Path $filePath -Destination $outputPath

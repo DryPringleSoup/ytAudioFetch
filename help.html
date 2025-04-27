@@ -89,34 +89,35 @@
         <li><b>Dark Mode activator</b> - Changes the theme to dark mode (see last image for previews).</li>
         <li><b>Verbose skip list</b> - Normally, when the program is done processing, it shows a list of any videos/JSON entries whose downloads were skipped; turning this on will show all operations that were skipped, like skipped tags and skipped saves. This often makes the list much longer.</li>
         <li><b>Download operation<sup><a href="#fn1">[1]</a></sup></b> - Whether or not to download the audio file.</li>
-        <!-- 10 --> <li><b>Tag operation</b> - Whether or not to tag the audio file with tags checked in 14-19.</li>
+        <!-- 10 --> <li><b>Tag operation</b> - Whether or not to tag the audio file with tags checked in 15-20.</li>
+        <li><b>Proxy URL</b> - If want to use a proxy server to redirect requests, enter its URL here, otherwise leave blank</li>
         <li><b>Save operation</b> - Whether or not to save the tag data to a JSON file.</li>
         <li><b>Replacing files</b> - Replace existing files with the same name, works by checking if a file has the format <code>YTAF-[id]-[title].mp3</code> (with the same ID and title). This means, if you change the file name, the original will not be replaced.</li>
         <li><b>Tag existing</b> - Uses the same check as 12 to determine existing files. When turned off, skips tagging if the file already exists.</li>
         <span id="tags">
-            <li><b>*Youtube URL tag</b> - Gets saved to the WOAS (sourceURL) ID3 tag.</li>
-        <!-- 15 -->     <li><b>*Title tag<sup><a href="#fn2">[2]</a></sup></b> - Gets saved to the TIT2 (title) ID3 tag.</li>
+        <!-- 15 --> <li><b>*Youtube URL tag</b> - Gets saved to the WOAS (sourceURL) ID3 tag.</li>
+            <li><b>*Title tag<sup><a href="#fn2">[2]</a></sup></b> - Gets saved to the TIT2 (title) ID3 tag.</li>
             <li><b>*Artist tag<sup><a href="#fn2">[2]</a></sup></b> - Gets saved to the TPE1 (artist) ID3 tag.</li>
             <li><b>*Uploader tag</b> - Gets saved to the TPUB (publisher) ID3 tag.</li>
             <li><b>*Thumbnail tag<sup><a href="#fn1">[1]</a></sup></b> - Gets saved to the APIC (picture) ID3 tag.</li>
-            <li><b>*Description tag<sup><a href="#fn1">[1]</a></sup></b> - Gets saved to the COMM (comment) ID3 tag.</li>
+        <!-- 20 --> <li><b>*Description tag<sup><a href="#fn1">[1]</a></sup></b> - Gets saved to the COMM (comment) ID3 tag.</li>
         </span>
-        <!-- 20 --> <ul><li>*A comprehensive list of ID3 tags can be found with descriptions can be found <a href="https://id3.org/id3v2-00">here</a> or, for a more concise list, <a href="https://exiftool.org/TagNames/ID3.html">here</a></li></ul>
+        <ul><li>*A comprehensive list of ID3 tags can be found with descriptions can be found <a href="https://id3.org/id3v2-00">here</a> or, for a more concise list, <a href="https://exiftool.org/TagNames/ID3.html">here</a></li></ul>
+        <li><b>Cover options toggle</b> - hides and unhides cover options; these options are only used if tagging (10) is enabled and the thumbnail tag (19) is enabled</li>
         <li><b>Clear cover<sup><a href="#fn3">[3]</a></sup></b> - Clears all existing, embedded covers tagged on the mp3 file</li>
         <li><b>Cover save path</b> - Folder to save the covers that get tagged onto the mp3 or cleared, leave blank to not save</li>
-        <li><b>Compression quality slider<sup><a href="#fn4">[4]</a></sup></b> - Controls the compression quality when converting thumbnails to JPG to be tagged onto the mp3, slide the slider to increase or decrease the quality or use the left and right buttons on the side of the slider to increment or decrement by 1</li>
-        <li><b>Overwrite Save</b> - Overwrite the tags saved in the entry for that file in the JSON file that is put in 25.</li>
-        <!-- 25 --> <li><b>Save file path</b> - where to save the JSON file, you can either manually type it or press the folder icon and browse to find it. If left blank, it will save to ytAudioFetchSave.json in the user folder</li>
+        <li><b>Compression quality slider<sup><a href="#fn4">[4]</a></sup></b> - Controls the compression quality when converting thumbnails to JPG to be tagged onto the mp3, slide the slider to increase or decrease the quality or use the left and right buttons on the side of the slider to increment or decrement by 1. Also, it should be noted that <a href="https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html#jpeg-saving">qualities above 95 have diminishing return and may lead to large files.</a></li>
+        <!-- 25 --> <li><b>Overwrite Save</b> - Overwrite the tags saved in the entry for that file in the JSON file that is put in 26.</li>
+        <li><b>Save file path</b> - where to save the JSON file, you can either manually type it or press the folder icon and browse to find it. If left blank, it will save to ytAudioFetchSave.json in the user folder</li>
         <li><b>Start button</b> - Begin the script in the current mode.</li>
         <li><b>Status feed</b> - Updates as the script runs; shows the current video being processed and, when finished, the list of skipped operations.</li>
         <li><b>Output feed</b> - Updates as the script runs; shows the console output from the script.</li>
     </ol>
     
     <ul>
-        <li id="fn1"><i>Note for 9, 18, and 19<sup>1</sup></i>: Downloading videos or extracting thumbnails/descriptions requires the extractor to download the full webpage info, which can make fetching large playlists very slow. If all you want is to tag/save the other tags, turn off downloading, thumbnails, and descriptions for a much faster extraction. <span id="fn5"> Generally, minizing any unneeded downloading from the internet makes processing faster. So, for example, if you're in JSON mode and you only really want to retag existing files, turn off downloading and if you also don't need to change the thumbnails, turn that off since most of the time the thumbnails are saved as links that have to be downloaded. It should also be made clear that tagging descriptions in JSON mode doesn't really the slow down that it does with URL mode because it's already saved locally and it doesn't have to download the full webpage to get it.</span></li>
-        <li id="fn2"><i>Note for 15 and 16<sup>2</sup></i>: When the original YouTube title is in the form "<i>this</i> - <i>that</i>", it gets parsed as "<i>artist</i> - <i>title</i>", otherwise, the title is just the original title, and the artist is just the channel name. Also, if the artist is the channel name, it removes the "<i>- Topic</i>" suffix from autogenerated YouTube Music tracks.</li>
-        <li id="fn3"><i>Note for 21<sup>3</sup></i>: This is useful because the tagged covers automatically get sorted by image size in ascending order which causes the smallest cover to be always be shown first even if you added bigger cover images later. To my knowledge, there is no way of changing this order which is really annoying.</li>
-        <li id="fn4"><i>Note for 23<sup>4</sup></i>: Qualities above 95 have diminishing returns and may lead to large files. Also, covers that already jpegs will not be converted or compressed</li>
+        <li id="fn1"><i>Note for 9, 19, and 20<sup>1</sup></i>: Downloading videos or extracting thumbnails/descriptions requires the extractor to download the full webpage info, which can make fetching large playlists very slow. If all you want is to tag/save the other tags, turn off downloading, thumbnails, and descriptions for a much faster extraction. <span id="fn4"> Generally, minizing any unneeded downloading from the internet makes processing faster. So, for example, if you're in JSON mode and you only really want to retag existing files, turn off downloading and if you also don't need to change the thumbnails, turn that off since most of the time the thumbnails are saved as links that have to be downloaded. It should also be made clear that tagging descriptions in JSON mode doesn't really the slow down that it does with URL mode because it's already saved locally and it doesn't have to download the full webpage to get it.</span></li>
+        <li id="fn2"><i>Note for 16 and 17<sup>2</sup></i>: When the original YouTube title is in the form "<i>this</i> - <i>that</i>", it gets parsed as "<i>artist</i> - <i>title</i>", otherwise, the title is just the original title, and the artist is just the channel name. Also, if the artist is the channel name, it removes the "<i>- Topic</i>" suffix from autogenerated YouTube Music tracks.</li>
+        <li id="fn3"><i>Note for 22<sup>3</sup></i>: This is useful because the tagged covers automatically get sorted by image size in ascending order which causes the smallest cover to be always be shown first even if you added bigger cover images later. To my knowledge, there is no way of changing this order which is really annoying.</li>
     </ul>
     <br>
 
@@ -138,13 +139,13 @@
     },
     ...
 }</code></pre>
-            <li><i>Note:<i> Not all tags are required to be included. However, only supported tags (see <a href="#tags">14-19</a>) will be added.</li>
+            <li><i>Note:<i> Not all tags are required to be included. However, only supported tags (see <a href="#tags">15-20</a>) will be added.</li>
         </ul>
         <li><b><i>((Everything else function as if in <a href="#URLmode">URL mode</a>))</i></b></li>
     </ol>
 
     <ul>
-        <li><i>Note when tagging using JSON mode</i>: Refer to the <a href="#fn5">ladder half</a> of note 1 in url mode</li>
+        <li><i>Note when tagging using JSON mode</i>: Refer to the <a href="#fn4">ladder half</a> of note 1 in url mode</li>
     </ul>
 </body>
 </html>
