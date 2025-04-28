@@ -91,7 +91,7 @@ If you're on windows you can just download the installer from the [releases page
 3. **Help Button** - opens up this guide in your browser
 4. **Youtube URL to extract from** - non-private playlist or single videos (this includes shorts) are valid
 5. **Directory/Folder to save to** - you can either manually type it or press the folder icon and browse to find it
-6. **Advanced options toggle** - hides and unhides advanced options
+6. **Advanced options toggle** - hides and unhides advanced options. When visible, you can resize the options window by hovering over your mouse between it and the start button (27) and then dragging
 7. **Dark Mode activator** - changes the theme to dark mode (see last image for previews)
 8. **Verbose skip list** - Normally, when the program is done processing, it shows a list of any videos/json entries whose downloads were skipped; turning on this will show all operations that were skipped like skipped tags and skipped saves. This often makes the list much longer
 9. **Download operation<sup>[[1]](#fn1)</sup>** - whether or not to download the audio file
@@ -106,7 +106,7 @@ If you're on windows you can just download the installer from the [releases page
 18. ***Uploader tag** - gets saved to the TPUB (publisher) ID3 tag
 19. ***Thumbnail tag<sup>[[1]](#fn1)</sup>** - gets saved to the APIC (picture) ID3 tag
 20. ***Description tag<sup>[[1]](#fn1)</sup>** - gets saved to COMM (comment) ID3 tag
-      - *A comprehensive list of ID3 tags can be found with descriptions can be found [here](https://id3.org/id3v2-00) or, for a more concise list, [here](https://exiftool.org/TagNames/ID3.html)
+      - *A comprehensive list of ID3 tags can be found with descriptions can be found [here](https://id3.org/id3v2-00) or, for a more concise list, [here](https://exiftool.org/TagNames/ID3.html#v2_4)
 21. **Cover options toggle** - hides and unhides cover options; these options are only used if tagging (10) is enabled and the thumbnail tag (19) is enabled
 22. **Clear covers<sup>[[3]](#fn3)</sup>** - clears all existing, embedded covers tagged on the mp3 file
 23. **Cover save path** - folder to save the covers that get tagged onto the mp3 or cleared, leave blank to not save

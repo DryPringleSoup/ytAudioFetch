@@ -217,24 +217,18 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.outputDirInput = FileBrowser("folder", "Enter the folder you want to save your MP3 files here", self)
         self.scriptModeLayout.addWidget(self.outputDirInput)
         
-        # Menu for extra settings
+        # Menu for extra settingssetMinimumHeight
         self.initOptionsMenu()
-        self.optionsGroup.setVisible(False)
+        self.optionsScrollArea.setVisible(False)
 
-        self.startButton = QtWidgets.QPushButton("𝙎 𝙏 𝘼 𝙍 𝙏", self)
-        self.startButton.clicked.connect(self.startYTDLP)
-        self.scriptModeLayout.addWidget(self.startButton)
-        
-        # Using a QTextEdit instead of QLabel because it allows for scrolling and text highlighing/copying
-        self.statusLabel = QtWidgets.QTextEdit(self)
-        self.statusLabel.setReadOnly(True)  # Make the text read-only
-        self.statusLabel.setLineWrapMode(QtWidgets.QTextEdit.NoWrap)
-        self.statusLabel.setMinimumHeight(50)  # Adjust this value as needed
-        self.statusLabel.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Ignored)
-        self.scriptModeLayout.addWidget(self.statusLabel,1)
+        # Start button and labels
+        self.initProcessingWidgets()
 
-        self.outputLabel = QtWidgets.QLabel("Output:", self)
-        self.scriptModeLayout.addWidget(self.outputLabel)
+        # Splitter to put the options and processing sections next to each other and make them capable of resizing
+        self.splitter = QtWidgets.QSplitter(self, orientation=QtCore.Qt.Vertical)
+        self.splitter.addWidget(self.optionsScrollArea)
+        self.splitter.addWidget(self.processingSection)
+        self.scriptModeLayout.addWidget(self.splitter)
 
         self.scriptModeGroup = QtWidgets.QGroupBox(self)
         self.scriptModeGroup.setLayout(self.scriptModeLayout)
@@ -323,7 +317,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
     def initOptionsMenu(self):
         # Options button
         self.optionsButton = QtWidgets.QPushButton("Advanced Options", self)
-        self.optionsButton.clicked.connect(lambda: self.optionsGroup.setVisible(not self.optionsGroup.isVisible()))
+        self.optionsButton.clicked.connect(lambda: self.optionsScrollArea.setVisible(not self.optionsScrollArea.isVisible()))
         self.scriptModeLayout.addWidget(self.optionsButton)
 
         # Options menu layout
@@ -372,7 +366,13 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
 
         self.optionsGroup = QtWidgets.QGroupBox("Options:", self)
         self.optionsGroup.setLayout(self.optionsLayout)
-        self.scriptModeLayout.addWidget(self.optionsGroup)
+
+        # Create a QScrollArea to wrap the options layout and add that to the main layout instead of the options layout
+        self.optionsScrollArea = QtWidgets.QScrollArea(self)
+        self.optionsScrollArea.setWidgetResizable(True)
+        self.optionsScrollArea.setMinimumHeight(150)
+        self.optionsScrollArea.setMaximumHeight(430)
+        self.optionsScrollArea.setWidget(self.optionsGroup)
     
     def toggleThemeMode(self):
         self.isDarkMode = not self.isDarkMode
@@ -507,6 +507,28 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
             self.coverQualitySlider.setStyleSheet("QSlider::handle:horizontal { background: white; border: 1px solid #aaa; border-radius: 3px; }")
             self.coverQualityWarningLabel.setVisible(False)
     
+    def initProcessingWidgets(self):
+        self.processingLayout = QtWidgets.QVBoxLayout()
+        self.processingLayout.setContentsMargins(0, 0, 0, 0)
+
+        self.startButton = QtWidgets.QPushButton("𝙎 𝙏 𝘼 𝙍 𝙏", self)
+        self.startButton.clicked.connect(self.startYTDLP)
+        self.processingLayout.addWidget(self.startButton)
+        
+        # Using a QTextEdit instead of QLabel because it allows for scrolling and text highlighing/copying
+        self.statusLabel = QtWidgets.QTextEdit(self)
+        self.statusLabel.setReadOnly(True)  # Make the text read-only
+        self.statusLabel.setLineWrapMode(QtWidgets.QTextEdit.NoWrap)
+        self.statusLabel.setMinimumHeight(50)  # Adjust this value as needed
+        self.statusLabel.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Ignored)
+        self.processingLayout.addWidget(self.statusLabel,1)
+
+        self.outputLabel = QtWidgets.QLabel("Output:", self)
+        self.processingLayout.addWidget(self.outputLabel)
+
+        self.processingSection = QtWidgets.QWidget(self)
+        self.processingSection.setLayout(self.processingLayout)
+
     def startYTDLP(self):
         #Input validation
         ytURL = self.urlInput.text()

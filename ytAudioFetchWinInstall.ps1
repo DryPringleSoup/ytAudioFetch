@@ -45,4 +45,4 @@ try {
 # copy ytAudioFetch.exe to desktop
 $filePath = Join-Path -Path $repoPath -ChildPath "ytAudioFetch.exe"
 $outputPath = Join-Path -Path [Environment]::GetFolderPath("Desktop") -ChildPath $filePath
-Copy-Item -Path $filePath -Destination $outputPath
+Copy-Item -Path $filePath -Destination $outputPath -Force
