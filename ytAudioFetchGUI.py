@@ -159,6 +159,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         super().__init__()
         self.initUI() # Initialize all the widgets in the UI
         self.setScriptMode(self.scriptMode) # Properly sets the look of the mode
+        self.resize(600, 300)
     
     def initUI(self):
         # Set the window title and size
@@ -228,6 +229,7 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.splitter = QtWidgets.QSplitter(self, orientation=QtCore.Qt.Vertical)
         self.splitter.addWidget(self.optionsScrollArea)
         self.splitter.addWidget(self.processingSection)
+        self.splitter.setCollapsible(1, False)
         self.scriptModeLayout.addWidget(self.splitter)
 
         self.scriptModeGroup = QtWidgets.QGroupBox(self)
@@ -282,7 +284,6 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.scriptMode = scriptMode
         self.updateOptions()
         self.setThemeMode(self.isDarkMode)
-        self.verticalCollapse()
     
     def updateOptions(self):
         downloading = self.operationSwitchsDict["download audio"].isChecked()
@@ -309,15 +310,13 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
             self.startButton.setDisabled(False)
             self.statusLabel.setText("")
     
-    def verticalCollapse(self):
-        width = self.width()
-        self.adjustSize()
-        self.resize(width, self.height())
-
     def initOptionsMenu(self):
         # Options button
         self.optionsButton = QtWidgets.QPushButton("Advanced Options", self)
-        self.optionsButton.clicked.connect(lambda: self.optionsScrollArea.setVisible(not self.optionsScrollArea.isVisible()))
+        self.optionsButton.clicked.connect(lambda: (
+            self.optionsScrollArea.setVisible(not self.optionsScrollArea.isVisible()),
+            self.updateOptionsScrollHeight()
+        ))
         self.scriptModeLayout.addWidget(self.optionsButton)
 
         # Options menu layout
@@ -371,9 +370,12 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.optionsScrollArea = QtWidgets.QScrollArea(self)
         self.optionsScrollArea.setWidgetResizable(True)
         self.optionsScrollArea.setMinimumHeight(150)
-        self.optionsScrollArea.setMaximumHeight(430)
         self.optionsScrollArea.setWidget(self.optionsGroup)
     
+    def updateOptionsScrollHeight(self):
+        contentHeight = self.optionsGroup.sizeHint().height()
+        self.optionsScrollArea.setMaximumHeight(contentHeight)
+
     def toggleThemeMode(self):
         self.isDarkMode = not self.isDarkMode
         self.setThemeMode(self.isDarkMode)
@@ -415,7 +417,10 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
     
     def initCoverOptions(self):
         self.showCoverOptionsButton = QtWidgets.QPushButton("Cover Tagging Options", self)
-        self.showCoverOptionsButton.clicked.connect(lambda: self.coverOptionsGroup.setVisible(not self.coverOptionsGroup.isVisible()))
+        self.showCoverOptionsButton.clicked.connect(lambda: (
+            self.coverOptionsGroup.setVisible(not self.coverOptionsGroup.isVisible()),
+            self.updateOptionsScrollHeight()
+        ))
         self.optionsLayout.addWidget(self.showCoverOptionsButton)
 
         self.coverOptionsLayout = QtWidgets.QVBoxLayout()
