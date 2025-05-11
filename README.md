@@ -21,6 +21,8 @@ After running the installer, enter `yes` or `y` for all given prompts and after 
 
 If the executable doesn't appear on your desktop, it can still be found in `C:\Users\<Username>\ytAudioFetch`.
 
+*Mild disclaimer*: It usually takes a couple seconds for the GUI to load so don't feel the need to spam if it doesn't appear imediately.
+
 ### Command Line
 0. Make sure you have [git](https://git-scm.com/), [python](https://www.python.org/), and [ffmpeg](https://www.ffmpeg.org/) installed
    - On Windows
