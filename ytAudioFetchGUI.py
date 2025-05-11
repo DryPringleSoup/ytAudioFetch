@@ -248,7 +248,8 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
             # sys.stdin.isatty() and most other terminal detection methods don't work on Windows
             # so I just gave up and made it only write to the log file and not the console
             self.DualStderr = MultiOut(self.errorFile)
-        else: self.DualStderr = MultiOut(sys.stdout, self.errorFile)
+        else: self.DualStderr = MultiOut(sys.stderr, self.errorFile)
+        sys.stderr = self.DualStderr
 
         self.setLayout(self.layout)
     
