@@ -1,4 +1,4 @@
-import os, yt_dlp, json, mimetypes
+import os, yt_dlp, json, mimetypes, re
 from requests import get, exceptions
 from hashlib import sha256
 from PIL import Image
@@ -39,6 +39,7 @@ YDL_CONCISE_EXTRACTION_OPTS = { # For single videos extraction both of these opt
     "extract_flat": True,
     "outtmpl": FILENAME_FORMAT
 }
+
 
 #URL MODE
 def ytafURL(arguments: Dict) -> List[Tuple[str, str]]:
@@ -239,7 +240,7 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
             except yt_dlp.utils.DownloadError as e: addToSkipList(skipList, entry["url"], e)
         return
 
-    audioFilePath = getActualFileName(entry, ydlOpts)
+    audioFilePath = sanitizeFileName( getActualFileName(entry, ydlOpts) )
     audioFileExists = os.path.exists(audioFilePath)
     audioSaveExists = audioFilePath in saveData
     shouldDownload = downloading and (replacingFiles or not audioFileExists)
@@ -260,7 +261,7 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
                     As an example this video: https://www.youtube.com/watch?v=UnIhRpIT7nc
                     The full title is "inabakumori - Lagtrain (Vo. Kaai Yuki) / 稲葉曇『ラグトレイン』Vo. 歌愛ユキ"
                     The verbose extraction only gives: "稲葉曇『ラグトレイン』Vo. 歌愛ユキ" (verboseInfo["title" or "fulltitle"])
-                    This is mad doubly confusing because the concise extraction gives it perfect fine
+                    This is doubly confusing because the concise extraction gives it perfect fine
                     """
                     os.rename(getActualFileName(verboseInfo, ydlOpts), audioFilePath)
 
@@ -340,6 +341,12 @@ def processEntryURL(entry: Dict[str, Any], ydlOpts: Dict[str, Any], saveData: Di
 def getActualFileName(infoDict: Dict[str, Any], ydlOpts: Dict[str, Any]) -> str:
     """Returns the actual file name of a video from its info dictionary."""
     return os.path.normpath( changeFileExt( yt_dlp.YoutubeDL(ydlOpts).prepare_filename(infoDict), "mp3" ) )
+
+def sanitizeFileName(filepath: str) -> str:
+    base, ext = os.path.splitext(os.path.basename(filepath))
+    # Remove characters that are not safe across Windows (<>:"/\|?* and control chars \x00-\x1F) / macOS (:) / Linux (/)
+    base = re.sub(r'[<>:"/\\|?*\x00-\x1F]', '_', base).strip().rstrip('.')
+    return os.path.join(os.path.dirname(filepath), base + ext)
 
 def parseEntryData(data: Dict[str, str], tagRequests: List[str] = None) -> Dict[str, str]:
     """
