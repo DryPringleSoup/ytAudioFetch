@@ -15,6 +15,12 @@
 ### Download Installer
 If you're on windows you can just download the installer from the [releases page](https://github.com/DryPringleSoup/ytAudioFetch/releases).
 
+To install, download the `ytAudioFetchWinInstall.ps1` below, right click, and press "Run with PowerShell". If that option isn't available then press "Open With", find Powershell, and press that. If powershell doesn't show up on the app list, then click "Choose an app on your PC" and go to `C:\Program Files\PowerShell\7\pwsh.exe`.
+
+After running the installer, enter `yes` or `y` for all given prompts and after 10 or so minutes it should be done. The executable that runs the app should appear on your desktop as `ytAudioFetch.exe`. If at any point the installer crashes, just run it again.
+
+If the executable doesn't appear on your desktop, it can still be found in `C:\Users\<Username>\ytAudioFetch`.
+
 ### Command Line
 0. Make sure you have [git](https://git-scm.com/), [python](https://www.python.org/), and [ffmpeg](https://www.ffmpeg.org/) installed
    - On Windows

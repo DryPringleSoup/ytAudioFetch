@@ -1,5 +1,4 @@
 import os, yt_dlp, json, mimetypes
-from time import time
 from requests import get, exceptions
 from hashlib import sha256
 from PIL import Image
@@ -9,7 +8,6 @@ from colorama import Fore, init
 init(autoreset=True)
 
 HOME_DIR = os.path.expanduser("~")
-TIME_NOW = time()
 RETRY_LIMIT = 3
 FILENAME_FORMAT = "YTAF-%(id)s-%(title)s.%(ext)s"
 ID3_ALIASES = { # official ID3 tagnames: https://exiftool.org/TagNames/ID3.html#v2_4 or https://id3.org/id3v2-00
@@ -19,17 +17,6 @@ ID3_ALIASES = { # official ID3 tagnames: https://exiftool.org/TagNames/ID3.html#
     "uploader": TPUB, # Publisher
     "thumbnail": APIC, # Picture
     "description": COMM, # Comment
-    #TODO - add the following:
-    #*Release time: (TDRL) parse from upload_date in basic info ("timestamp" key this is in epoch to convert to iso 8601)
-    #*popularity: (POPM) calculate based on views ("view_count" key), subscribers ("channel_follower_count"), comments ("comment_count"), likes ("like_count"), and time elapsed in basic info ("view_count" key)
-    #Album: (TALB) playlist name, "single" if not in a playlist ("title" key in basic info)
-    #videos taken in a playlost will give the basic info of the playlist but no entries so "title" is the playlist name while having their basename still be "watch")
-    # however video taken from auto generated playlist (titled "My Mix" in "title" and links have "&list=RDMM" 
-    # after the video url) will have the entries since there's no way to get the playlist URL wince their all the same
-    #videos with comments turn off have no "comment_count" key
-    # sames go for "like_count" with hidden likes
-    #*need verbose mode to get more info
-    # Add option to refer to cover source desctiption to check to download
 }
 def hook(d: Dict[str, Any]) -> None:
     if d["status"] == "finished": print("  [dl hook] Finished downloading info of", d['info_dict']['title'], end="")
@@ -787,51 +774,6 @@ def changeFileExt(filePath: str, newExt: str) -> str:
     """Changes the file extension of the given filename."""
     base, _ = os.path.splitext(os.path.basename(filePath))
     return os.path.join(os.path.dirname(filePath), base+"."+newExt)
-
-def calcPopularity(views: int, likes: int, subscribers: int, comments: int, timestamp: int,
-                   scale: float = 0.007, timeScale: float = 31536000, a: float = 0.4, b: float = 0.5,
-                   c: float = 0.125, d: float = 0.3, e: float = 0.1, f: float = -0.01, g: float = 1) -> float:
-    """
-    Calculate the custom YouTube video popularity score.
-
-    Parameters:
-    - views: Number of views
-    - likes: Number of likes
-    - subscribers: Number of subscribers
-    - comments: Number of comments
-    - timestamp: Unix timestamp
-
-    Optional parameters (with defaults):
-    - scale: Calibration scale constant
-    - timeScale: Time scale (years) for decay
-    - a: Views exponent
-    - b, c: Adjusted-like normalization exponents
-    - d: Likes-factor exponent
-    - e: Comments exponent
-    - f: Subscriber exponent (negative for diminishing returns)
-    - g: Time decay exponent
-
-    Returns:
-    - popularityScore: Popularity score (0–10 scale by default calibration)
-
-    Reference numbers:
-    - A video posted by a 10 million subscriber channel with a billion views, a million likes, and 100 thousand comments that was posted 10 years ago would have a score of 10.5.
-    - A video posted by a 100 thousand subscriber channel with a million views, 20 thousand likes, and a thousand comments that was posted hald a year ago would have a score of 3.32.
-    - Any video with 0 views has a score of 0.
-    """
-    # Normalize
-    if views == 0: return 0
-    timeElapsed = (TIME_NOW-timestamp)/timeScale
-    subscribers = max(subscribers, 1)
-    
-    vFactor = views**a
-    lFactor = (likes/(views**b*subscribers**c))**d
-    cFactor = comments**e
-    sFactor = subscribers**f
-    tFactor = (1+timeElapsed)**(-g)
-    popularityScore = round(scale*vFactor*lFactor*cFactor*sFactor*tFactor, 2)
-
-    return popularityScore
 
 # Input validation
 def strInput(inputText: str) -> str:
