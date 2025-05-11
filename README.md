@@ -19,7 +19,7 @@ To install, download the `ytAudioFetchWinInstall.ps1` below, right click, and pr
 
 After running the installer, enter `yes` or `y` for all given prompts and after 10 or so minutes it should be done. The executable that runs the app should appear on your desktop as `ytAudioFetch.exe`. If at any point the installer crashes, just run it again.
 
-If the executable doesn't appear on your desktop, it can still be found in `C:\Users\<Username>\ytAudioFetch`.
+If the executable doesn't appear on your desktop, it can still be found in `C:\Users\<Username>\ytAudioFetch`. To update, you can just run the installer again.
 
 *Mild disclaimer*: It usually takes a couple seconds for the GUI to load so don't feel the need to spam if it doesn't appear imediately.
 
