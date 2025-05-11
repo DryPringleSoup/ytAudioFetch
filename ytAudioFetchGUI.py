@@ -77,8 +77,7 @@ class MultiOut:
             stream.flush()
 
     def flush(self):
-        for stream in self.streams:
-            stream.flush()
+        for stream in self.streams: stream.flush()
 
 # Processing
 class OutputCapture(QtCore.QObject):
@@ -91,7 +90,7 @@ class OutputCapture(QtCore.QObject):
         if os.name == "nt" or not sys.stdin.isatty():
             # sys.stdin.isatty() and most other terminal detection methods don't work on Windows
             # so I just gave up and made it only write to the log file and not the console
-            self.fullStdout = logFile
+            self.fullStdout = MultiOut(logFile)
         else: self.fullStdout = MultiOut(sys.stdout, logFile)
 
     def write(self, message):
@@ -244,6 +243,12 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
 
         self.errorFile = open("errors.log", "w")
         self.DualStderr = MultiOut(sys.stderr, self.errorFile)
+        # If connected to a terminal, print to both the terminal and the log file
+        if os.name == "nt" or not sys.stdin.isatty():
+            # sys.stdin.isatty() and most other terminal detection methods don't work on Windows
+            # so I just gave up and made it only write to the log file and not the console
+            self.DualStderr = MultiOut(self.errorFile)
+        else: self.DualStderr = MultiOut(sys.stdout, self.errorFile)
 
         self.setLayout(self.layout)
     
