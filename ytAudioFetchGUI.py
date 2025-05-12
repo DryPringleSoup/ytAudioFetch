@@ -236,12 +236,12 @@ class YTAudioFetcherGUI(QtWidgets.QWidget):
         self.layout.addWidget(self.scriptModeGroup)
 
         # Redirect stdout to capture print statements and output them to the labels, console, and log file
-        self.logFile = open("output.log", "w")
+        self.logFile = open("output.log", "w", encoding="utf-8")
         self.outputCapture = OutputCapture(self.logFile)
         self.outputCapture.textUpdated.connect(self.outputConsoleToLabels, QtCore.Qt.QueuedConnection)
         sys.stdout = self.outputCapture
 
-        self.errorFile = open("errors.log", "w")
+        self.errorFile = open("errors.log", "w", encoding="utf-8")
         self.DualStderr = MultiOut(sys.stderr, self.errorFile)
         # If connected to a terminal, print to both the terminal and the log file
         if os.name == "nt" or not sys.stdin.isatty():
