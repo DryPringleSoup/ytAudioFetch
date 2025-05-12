@@ -788,13 +788,13 @@ def strInput(inputText: str) -> str:
     while not (string := input(inputText)): pass
     return string
 
-def intInput(inputText: str) -> int:
-    """Asks the user for input until a valid integer is entered."""
-    while not (num := strInput(inputText)):
+def intInput(inputText: str, interval: Tuple[int, int] = (0, 100)) -> int:
+    """Asks the user for input until a valid integer within the given inclusive interval is entered."""
+    while True:
         try:
-            num = int(num)
-            if 0 <= num <= 100: return num
-            else: print(Fore.RED+"Invalid number. Please enter a number between 0 and 100.")
+            num = int(strInput(inputText))
+            if interval[0] <= num <= interval[1]: return num
+            else: print(Fore.RED+f"Invalid number. Please enter a number from {interval[0]} to {interval[1]}.")
         except ValueError:
             print(Fore.RED+"Could not convert input to integer. Please enter a valid integer.")
             pass
@@ -806,14 +806,11 @@ def boolInput(inputText: str) -> bool:
 
 if __name__ == "__main__": # User inputs
     while True: # Keeps asking for input until a valid mode is entered
-        mode = strInput("URL or JSON mode? (0 or 1): ")
-        
-        if mode not in ["0", "1"]: # Yes I know that I could probably make this a boolInput but this is incase I'd ever want to add more modes
-            print(Fore.RED+"Invalid mode. Please enter 0 or 1.")
-            continue
-        
+        # I know I could've done this with boolInput, but this is in case I want to add more modes
+        mode = intInput("URL or JSON mode? (0 or 1): ", (0,1))
+
         if boolInput("Use defaults parameters? (y/n): "):
-            if mode == "0":
+            if mode == 0:
                 arguments = {
                     "ytURL": strInput("Enter the YouTube playlist/video URL: "),
                     "outputDir": strInput("Enter the directory to save the MP3 files: ")
@@ -821,9 +818,9 @@ if __name__ == "__main__": # User inputs
             else: arguments = { "saveFilePath": strInput("Enter the path of the JSON save file: ") }
         else:
             print("Operations:")
-            print("\td: Download audio\tt: Tag audio"+("\ts: Save tags" if mode == "0" else ""))
+            print("\td: Download audio\tt: Tag audio"+("\ts: Save tags" if mode == 0 else ""))
             downloadMethod = strInput("Include the letters for each of operation you want to perform: ").lower()
-            downloading, tagging, saving = "d" in downloadMethod, "t" in downloadMethod, "s" in downloadMethod and mode == "0"
+            downloading, tagging, saving = "d" in downloadMethod, "t" in downloadMethod, "s" in downloadMethod and mode == 0
 
             if not (downloading or tagging or saving):
                 print(Fore.RED+"No operations selected. Terminating...")
@@ -842,26 +839,26 @@ if __name__ == "__main__": # User inputs
                 break
 
             arguments = { # There were too many arguments so I'm stuff them all in a dictionary
-                "ytURL": strInput("Enter the YouTube playlist/video URL: ") if mode == "0" else None,
-                "outputDir": strInput("Enter the directory to save the MP3 files: ") if mode == "0" else None,
-                "saveFilePath": strInput("Enter the path of the JSON save file: ") if mode == "1" or saving else None,
+                "ytURL": strInput("Enter the YouTube playlist/video URL: ") if mode == 0 else None,
+                "outputDir": strInput("Enter the directory to save the MP3 files: ") if mode == 0 else None,
+                "saveFilePath": strInput("Enter the path of the JSON save file: ") if mode == 1 or saving else None,
                 "downloading": downloading,
                 "tagging": tagging,
                 "saving": saving,
                 "replacingFiles": boolInput("Replace existing files? (y/n): ") if downloading else False,
                 "proxyURL": input("Enter the proxy URL (leave empty for no proxy): ") if downloading else None,
-                "tagExisting": boolInput("tag existing files? (y/n): ") if mode == "0" and tagging else False,
+                "tagExisting": boolInput("tag existing files? (y/n): ") if mode == 0 and tagging else False,
                 "changeableTags": changeableTags,
                 "clearCovers": boolInput("Clear existing covers? (y/n): ") if "thumbnail" in changeableTags else False,
                 "coverDir": input("Enter the directory to save the cover images (leave empty to not save covers): ") if "thumbnail" in changeableTags else None,
-                "coverQuality": intInput(" *Values over 95 result in higher file sizes with a diminishing return on quality*\nEnter the cover quality (0-100): ") if "thumbnail" in changeableTags else 75,
+                "coverQuality": intInput(" *Values over 95 result in higher file sizes with a diminishing return on quality*\nEnter the cover quality (0-100): ", (0, 100)) if "thumbnail" in changeableTags else 75,
                 "overwriteSave": boolInput("Overwrite data in save file? (y/n): ") if saving else False,
                 "verboseSkipList": boolInput("Verbose skip list (show all operations skipped)? (y/n): ")
             }
 
         print("\n\n")
-        if mode == "0": skipList = ytafURL(arguments)
-        elif mode == "1": skipList = ytafJSON(arguments)
+        if mode == 0: skipList = ytafURL(arguments)
+        elif mode == 1: skipList = ytafJSON(arguments)
 
         if skipList: # Report skipped entries
             print()
