@@ -807,49 +807,57 @@ def boolInput(inputText: str) -> bool:
 if __name__ == "__main__": # User inputs
     while True: # Keeps asking for input until a valid mode is entered
         mode = strInput("URL or JSON mode? (0 or 1): ")
-
+        
         if mode not in ["0", "1"]: # Yes I know that I could probably make this a boolInput but this is incase I'd ever want to add more modes
             print(Fore.RED+"Invalid mode. Please enter 0 or 1.")
             continue
         
-        print("Operations:")
-        print("\td: Download audio\tt: Tag audio"+("\ts: Save tags" if mode == "0" else ""))
-        downloadMethod = strInput("Include the letters for each of operation you want to perform: ").lower()
-        downloading, tagging, saving = "d" in downloadMethod, "t" in downloadMethod, "s" in downloadMethod and mode == "0"
-        
-        if not (downloading or tagging or saving):
-            print(Fore.RED+"No operations selected. Terminating...")
-            break
-        
-        if tagging or saving:
-            availableTags = list(ID3_ALIASES)
-            print("Available tags:", *[f"\t{i+1}: {tag}" for i, tag in enumerate(availableTags)], sep="\n")
-            selectedTags = strInput("Enter the tags you want to change: ")
-            selectedTags = {i for i in range(1,len(availableTags)+1) if str(i) in selectedTags}
-            changeableTags = [ availableTags[i-1] for i in selectedTags ]
-        else: changeableTags = []
+        if boolInput("Use defaults parameters? (y/n): "):
+            if mode == "0":
+                arguments = {
+                    "ytURL": strInput("Enter the YouTube playlist/video URL: "),
+                    "outputDir": strInput("Enter the directory to save the MP3 files: ")
+                }
+            else: arguments = { "saveFilePath": strInput("Enter the path of the JSON save file: ") }
+        else:
+            print("Operations:")
+            print("\td: Download audio\tt: Tag audio"+("\ts: Save tags" if mode == "0" else ""))
+            downloadMethod = strInput("Include the letters for each of operation you want to perform: ").lower()
+            downloading, tagging, saving = "d" in downloadMethod, "t" in downloadMethod, "s" in downloadMethod and mode == "0"
 
-        if not (downloading or changeableTags): # Since this passed previous check, if downloading is false either tagging or saving must be true
-            print(Fore.YELLOW + "Tagging or saving requires at least one tag to be changeable.")
-            break
-        
-        arguments = { # There were too many arguments so I'm stuff them all in a dictionary
-            "ytURL": strInput("Enter the YouTube playlist/video URL: ") if mode == "0" else None,
-            "outputDir": strInput("Enter the directory to save the MP3 files: ") if mode == "0" else None,
-            "saveFilePath": strInput("Enter the path of the JSON save file: ") if mode == "1" or saving else None,
-            "downloading": downloading,
-            "tagging": tagging,
-            "saving": saving,
-            "replacingFiles": boolInput("Replace existing files? (y/n): ") if downloading else False,
-            "proxyURL": strInput("Enter the proxy URL (leave empty for no proxy): ") if downloading else None,
-            "tagExisting": boolInput("tag existing files? (y/n): ") if mode == "0" and tagging else False,
-            "changeableTags": changeableTags,
-            "clearCovers": boolInput("Clear existing covers? (y/n): ") if "thumbnail" in changeableTags else False,
-            "coverDir": strInput("Enter the directory to save the cover images (leave empty to not save covers): ") if "thumbnail" in changeableTags else None,
-            "coverQuality": intInput(" *Values over 95 result in higher file sizes with a diminishing return on quality*\nEnter the cover quality (0-100): ") if "thumbnail" in changeableTags else 75,
-            "overwriteSave": boolInput("Overwrite data in save file? (y/n): ") if saving else False,
-            "verboseSkipList": boolInput("Verbose skip list (show all operations skipped)? (y/n): ")
-        }
+            if not (downloading or tagging or saving):
+                print(Fore.RED+"No operations selected. Terminating...")
+                break
+            
+            if tagging or saving:
+                availableTags = list(ID3_ALIASES)
+                print("Available tags:", *[f"\t{i+1}: {tag}" for i, tag in enumerate(availableTags)], sep="\n")
+                selectedTags = strInput("Enter the tags you want to change: ")
+                selectedTags = {i for i in range(1,len(availableTags)+1) if str(i) in selectedTags}
+                changeableTags = [ availableTags[i-1] for i in selectedTags ]
+            else: changeableTags = []
+
+            if not (downloading or changeableTags): # Since this passed previous check, if downloading is false either tagging or saving must be true
+                print(Fore.YELLOW + "Tagging or saving requires at least one tag to be changeable.")
+                break
+
+            arguments = { # There were too many arguments so I'm stuff them all in a dictionary
+                "ytURL": strInput("Enter the YouTube playlist/video URL: ") if mode == "0" else None,
+                "outputDir": strInput("Enter the directory to save the MP3 files: ") if mode == "0" else None,
+                "saveFilePath": strInput("Enter the path of the JSON save file: ") if mode == "1" or saving else None,
+                "downloading": downloading,
+                "tagging": tagging,
+                "saving": saving,
+                "replacingFiles": boolInput("Replace existing files? (y/n): ") if downloading else False,
+                "proxyURL": input("Enter the proxy URL (leave empty for no proxy): ") if downloading else None,
+                "tagExisting": boolInput("tag existing files? (y/n): ") if mode == "0" and tagging else False,
+                "changeableTags": changeableTags,
+                "clearCovers": boolInput("Clear existing covers? (y/n): ") if "thumbnail" in changeableTags else False,
+                "coverDir": input("Enter the directory to save the cover images (leave empty to not save covers): ") if "thumbnail" in changeableTags else None,
+                "coverQuality": intInput(" *Values over 95 result in higher file sizes with a diminishing return on quality*\nEnter the cover quality (0-100): ") if "thumbnail" in changeableTags else 75,
+                "overwriteSave": boolInput("Overwrite data in save file? (y/n): ") if saving else False,
+                "verboseSkipList": boolInput("Verbose skip list (show all operations skipped)? (y/n): ")
+            }
 
         print("\n\n")
         if mode == "0": skipList = ytafURL(arguments)

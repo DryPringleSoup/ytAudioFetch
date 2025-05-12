@@ -165,8 +165,38 @@ If the executable doesn't appear on your desktop, it can still be found in `C:\U
 ```bash
 python ytAudioFetch.py
 ```
+#### With defaults
 ```
 URL or JSON mode? (0 or 1): 0
+Use defaults parameters? (y/n): y
+Enter the YouTube playlist/video URL: https://www.youtube.com/playlist?list=PLUujrJZl_60rr9OQMLSzHvrbIX0dCen-i
+Enter the directory to save the MP3 files: ~/Music
+```
+- defaults:
+   - downloading = True
+   - tagging = True
+   - saving = True
+   - replacingFiles = False
+   - proxyURL = ""
+   - tagExisting = False
+   - changeableTags = [all tags]
+   - clearCovers = False
+   - coverDir = ""
+   - coverQuality = 75
+   - overwriteSave = False
+   - saveFilePath = "$HOME_PATH/ytAudioFetchSave.json"
+   - verboseSkipList = False
+```
+URL or JSON mode? (0 or 1): 1
+Use defaults parameters? (y/n): y
+Enter the path of the JSON save file: ~/ytAudioFetchSave.json
+```
+- defaults: (same as above but without saveFilePath since you're setting it in this mode)
+
+#### Without defaults
+```
+URL or JSON mode? (0 or 1): 0
+Use defaults parameters? (y/n): n
 Operations:
         d: Download audio       t: Tag audio    s: Save tags
 Include the letters for each of operation you want to perform: dts
@@ -193,6 +223,7 @@ Verbose skip list (show all operations skipped)? (y/n): y
 ```
 ```
 URL or JSON mode? (0 or 1): 1
+Use defaults parameters? (y/n): n
 Operations:
         d: Download audio       t: Tag audio
 Include the letters for each of operation you want to perform: dt
